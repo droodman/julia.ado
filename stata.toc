@@ -2,4 +2,4 @@ v 3
 
 d GitHub repository for julia.ado
 
-p julia.ado A bridge from Stata to Julia
+p julia A bridge from Stata to Julia
