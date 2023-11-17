@@ -1,11 +1,11 @@
 d 'julia': package to link Stata to Julia
 d
-d The Julia package connects Stata to Julia. It provides three
+d The julia.ado package connects Stata to Julia. It provides three
 d connections: 1) A "julia:" prefix command that lets
 d you send single-line commands from the Stata prompt to Julia 
 d and see the results. 2) Subcommands such as PutVarsToDF for 
-d high-speed copying of data between Julia and Stata. 3) A set 
-d of Julia functions for reading and writing Stata variables, 
+d high-speed copying of data between Julia and Stata. 
+d 3) Julia functions for reading and writing Stata variables, 
 d macros, matrices, and scalars. The package requires Stata 
 d version 14.1 or later and Julia 1.9 or later (free). It runs 
 d in 64-bit Windows, Linux, or macOS with Apple Silicon.
