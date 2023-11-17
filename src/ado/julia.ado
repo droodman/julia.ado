@@ -33,9 +33,10 @@ program define assure_julia_started
         di as err "Installation problem: can't find julia.plugin, which is part of the julia.ado Stata package."
         exit 198
       }
-      julia, qui: StataPluginInterface.setdllpath(dirname(expanduser(raw"`r(fn)'")))
+      julia, qui: StataPluginInterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       julia AddPkg DataFrames
+      julia, qui: using DataFrames
     }
     if _rc global julia_loaded
   }
@@ -149,8 +150,8 @@ program define julia, rclass
     }
   }
   else {  // "julia: ..."
-    local before `s(before)'
-    local after `s(after)'
+    local before = `"`s(before)'"'
+    local after = `"`s(after)'"'
     
     assure_julia_started
 
