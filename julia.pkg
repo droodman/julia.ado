@@ -19,7 +19,7 @@ d Support: email david@@davidroodman.com
 d
 f src/ado/julia.ado
 F src/jl/StataPluginInterface.jl
-g WIN64 x64/Release/julia.plugin
+g WIN64 WIN64/julia.plugin
 g MACARM64 MacARM64/julia.plugin
 g OSX.ARM64 MacARM64/julia.plugin
 g LINUX64 LINUX64/julia.plugin
