@@ -1,5 +1,5 @@
 # julia.ado
-This package gives Stata users access to Julia, through three routes:
+This package gives Stata users access to Julia, with three kinds of tools:
 1.  A "julia:" prefix command that lets you send single-line commands from the Stata prompt to Julia and see the results.
 2.  Subcommands such as PutVarsToDF for high-speed copying of data between Julia and Stata.
 3.  Julia functions for reading and writing Stata variables, macros, matrices, and scalars.
