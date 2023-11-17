@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+*.stswp
+Steps to compile julia.docx
+src/ado/unit tests.do
+src/ado/benchmarks.do
