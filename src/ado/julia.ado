@@ -1,6 +1,7 @@
 * properly print a string with newlines
 cap program drop display_multiline
 program define display_multiline
+  version 14.1
   tempname t
   local s `0'
   scalar `t' = strpos(`"`s'"', char(10))
@@ -14,6 +15,8 @@ end
 
 cap program drop assure_julia_started
 program define assure_julia_started
+  version 14.1
+
   if `"$julia_loaded"' == "" {
     cap findfile StataPluginInterface.jl
     if _rc {
@@ -25,7 +28,7 @@ program define assure_julia_started
     cap noi {
       julia, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
       julia, qui: using StataPluginInterface
-      lcap findfile julia.plugin
+      cap findfile julia.plugin
       if _rc {
         di as err "Installation problem: can't find julia.plugin, which is part of the julia.ado Stata package."
         exit 198
@@ -40,6 +43,7 @@ end
 
 cap program drop julia
 program define julia, rclass
+  version 14.1
 
   cap _on_colon_parse `0'
   if _rc {
