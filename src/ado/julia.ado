@@ -18,9 +18,9 @@ program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
-    cap findfile StataPluginInterface.jl
+    cap findfile stataplugininterface.jl
     if _rc {
-      di as err "Installation problem: can't find StataPluginInterface.jl, which is part of the julia.ado Stata package."
+      di as err "Installation problem: can't find stataplugininterface.jl, which is part of the julia.ado Stata package."
       exit 198
     }
     plugin call _julia, start
@@ -33,7 +33,7 @@ program define assure_julia_started
         di as err "Installation problem: can't find julia.plugin, which is part of the julia.ado Stata package."
         exit 198
       }
-      julia, qui: StataPluginInterface.setdllpath(expanduser(raw"`r(fn)'"))
+      julia, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       julia AddPkg DataFrames
       julia, qui: using DataFrames
