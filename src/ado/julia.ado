@@ -27,7 +27,7 @@ program define assure_julia_started
     global julia_loaded 1  // put here to prevent infinite loop!
     cap noi {
       julia, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
-      julia, qui: using StataPluginInterface
+      julia, qui: using stataplugininterface
       cap findfile julia.plugin
       if _rc {
         di as err "Installation problem: can't find julia.plugin, which is part of the julia.ado Stata package."
