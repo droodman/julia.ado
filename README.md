@@ -36,8 +36,7 @@ Number of observations (_N) was 0, now 1,000,000.
 . julia: using GLM  // load generalized linear regression package
 
 . julia: lm(@formula(y ~ x), df)  // regress y on x
-StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}
-> , Vector{Int64}}}}, Matrix{Float64}}
+StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}, Vector{Int64}}}}, Matrix{Float64}}
 
 y ~ 1 + x
 
@@ -48,4 +47,9 @@ Coefficients:
 (Intercept)  -0.00294632  0.000999724   -2.95    0.0032  -0.00490575  -0.000986899
 x             0.999008    0.00099963   999.38    <1e-99   0.997049     1.00097
 ──────────────────────────────────────────────────────────────────────────────────
+
+. julia: SF_scal_save("adjR2", adjr2(m))
+
+. di adjR2
+.49968888
 ```
