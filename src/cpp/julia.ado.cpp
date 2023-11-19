@@ -4,6 +4,8 @@
 #include "stplugin.h"
 #include <julia.h>
 
+#define SF_varindex(s,a) ((_stata_)->stfindvar((s),(a)))
+
 #if SYSTEM==STWIN32
 #define strtok_r strtok_s
 #define snprintf sprintf_s
@@ -67,7 +69,8 @@ STDLL jlSF_scal_use(char* scal, double* z) { return(SF_scal_use(scal, z)); }
 STDLL jlSF_display(char* s) { return(SF_display(s)); }
 STDLL jlSF_error(char* s) { return(SF_error(s)); }
 STDLL_bool jlSF_is_missing(ST_double z) { return(SF_is_missing(z)); }
-
+STDLL jlSF_missval(void) { return(SV_missval); }
+STDLL_int jlSF_varindex(char* s, ST_int abbrev) { return(SF_varindex(s, abbrev)); }
 
 STDLL stata_call(int argc, char *argv[])
 {
@@ -98,6 +101,7 @@ STDLL stata_call(int argc, char *argv[])
                 char* evalbuf = (char*)malloc(len);
                 snprintf(evalbuf, len, (char*)"show(_Stata_context, MIME\"text/plain\"(), begin %s end); String(take!(_Stata_io))", argv[1]);
                 SF_macro_save((char*)"_ans", (char*)jl_string_data(safe_jl_eval_string(evalbuf)));
+                free(evalbuf);
             }
             return(0);
         }
@@ -110,6 +114,7 @@ STDLL stata_call(int argc, char *argv[])
                 char* evalbuf = (char*)malloc(len);
                 snprintf(evalbuf, len, (char*)"begin %s; 0 end", argv[1]);
                 safe_jl_eval_string(evalbuf);
+                free(evalbuf);
             }
             return(0);
         }
@@ -152,6 +157,8 @@ STDLL stata_call(int argc, char *argv[])
                     token = strtok_r(NULL, " ", &next_token);
                 }
             }
+            free(touse);
+            free(contents);
             return(0);
         }
 
@@ -179,6 +186,7 @@ STDLL stata_call(int argc, char *argv[])
                         px++;
                     }
             }
+            free(touse);
             return(0);
         }
 
@@ -214,6 +222,8 @@ STDLL stata_call(int argc, char *argv[])
                     token = strtok_r(NULL, " ", &next_token);
                 }
             }
+            free(touse);
+            free(contents);
             return(0);
         }
 
@@ -238,6 +248,53 @@ STDLL stata_call(int argc, char *argv[])
             return(0);
         }
 
+        // argv[0] = "GetVarsFromDF": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
+        // argv[1] = DataFrame name
+        // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
+        // argv[3] = string rendering of length of that macro
+        if (!strcmp(argv[0], "GetVarsFromDF")) {
+            snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
+            size_t nobs = (size_t)jl_unbox_int64(safe_jl_eval_string(buf));
+
+            char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
+            char* tousej = touse;
+            size_t ST_rows = 0;
+            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                ST_rows += (*tousej++ = (char)SF_ifobs(j));
+            if (nobs > ST_rows) {
+                free(touse);
+                throw("Too few rows to receive data.");
+            }
+
+            char* next_token;
+            ST_int maxlen = atoi(argv[3]) + 1;
+            char* contents = (char*)malloc(maxlen);
+            (void)SF_macro_use(argv[2], contents, maxlen);
+            char* token = strtok_r(contents, " ", &next_token);
+
+            double missval = SV_missval;
+
+            for (ST_int i = 1; i <= SF_nvars(); i++)
+                if (token != NULL) {
+                    snprintf(buf, BUFLEN, "let x=parent((%s)[!,:%s]); eltype(x)==Float64 ? x : Array{Float64, ndims(x)}(x) end", argv[1], token);  // assure source matrix is double
+                    jl_value_t* X = safe_jl_eval_string(buf);
+                    double* maxpx = (double*)jl_array_data(X);
+                    snprintf(buf, BUFLEN, "let t=parentindices((%s)[!,:%s]); length(t)==1 ? 1 : t[2] end", argv[1], token);
+                    maxpx += nobs * jl_unbox_int64(safe_jl_eval_string(buf));
+                    double* px = maxpx - nobs;  // start of column of interest in data matrix
+                    tousej = touse;
+                    for (ST_int j = SF_in1(); j <= SF_in2() && px < maxpx; j++)
+                        if (*tousej++) {
+                            SF_vstore(i, j, *px != *px ? missval : *px);
+                            px++;
+                        }
+                    token = strtok_r(NULL, " ", &next_token);
+                }
+            free(touse);
+            free(contents);
+            return(0);
+        }
+
         // argv[0] = "GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
         // argv[1] = DataFrame name
         // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
@@ -248,8 +305,13 @@ STDLL stata_call(int argc, char *argv[])
 
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
             char* tousej = touse;
+            size_t ST_rows = 0;
             for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                *tousej++ = (char)SF_ifobs(j);
+                ST_rows += (*tousej++ = (char)SF_ifobs(j));
+            if (nobs > ST_rows) {
+                free(touse);
+                throw("Too few rows to receive data.");
+            }
 
             char* next_token;
             ST_int maxlen = atoi(argv[3]) + 1;
@@ -272,6 +334,8 @@ STDLL stata_call(int argc, char *argv[])
                     }
                     token = strtok_r(NULL, " ", &next_token);
                 }
+            free(touse);
+            free(contents);
             return(0);
         }
 
@@ -284,6 +348,7 @@ STDLL stata_call(int argc, char *argv[])
             size_t ncols = (size_t)jl_unbox_int64(safe_jl_eval_string(buf));
             if (SF_nvars() < ncols)
                 ncols = SF_nvars();
+
             snprintf(buf, BUFLEN, "let x=%s; eltype(x)==Float64 ? x : Array{Float64, ndims(x)}(x) end", argv[1]);  // assure source matrix is double
             jl_value_t* X = safe_jl_eval_string(buf);
             double* _px = (double*)jl_array_data(X);

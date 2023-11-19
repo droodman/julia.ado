@@ -1,3 +1,22 @@
+*! boottest 0.5.1 19 November 2023
+*! Copyright (C) 2023 David Roodman
+
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+*! Version history at bottom
+
+
 * properly print a string with newlines
 cap program drop display_multiline
 program define display_multiline
@@ -63,20 +82,23 @@ program define julia, rclass
     
     if `"`cmd'"'=="AddPkg" {
       syntax namelist
-      julia, qui: using Pkg; vals = values(Pkg.dependencies())
-      foreach pkg in `namelist' {
-        qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
-        if !`r(ans)' {
-          di _n "The Julia package `pkg' is not installed. Attempting to install it. This could take a few minutes."
-          mata displayflush() 
-          if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
-                      else cap julia, qui: Pkg.add("`pkg'")
-          if _rc local failed `failed' `pkg'
+      if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
+      else {
+        julia, qui: using Pkg; vals = values(Pkg.dependencies())
+        foreach pkg in `namelist' {
+          qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
+          if !`r(ans)' {
+            di _n "The Julia package `pkg' is not installed. " _c
+            di "Attempting to install it. This could take a few minutes."
+            mata displayflush() 
+            cap julia, qui: Pkg.add("`pkg'")  // this is crashing Stata in Ubuntu 22.04
+            if _rc local failed `failed' `pkg'
+          }
         }
       }
       if "`failed'"!="" {
         di as err _n "Failed to automatically install the Julia " plural("package", `:word count `failed'') as cmd "`failed'"
-        di as err `"You should be able to install each missing package by running Julia and typing: _n as cmd using Pkg
+        di as err `"You should be able to install each missing package by running Julia and typing: _n as cmd "using Pkg"
         foreach pkg in `failed' {
           di `"Pkg.add("`pkg'")"'
         }
@@ -84,29 +106,50 @@ program define julia, rclass
         exit 198
       }
     }
-    else if `"`cmd'"'=="PutVarsToDF" {
-      syntax [varlist] [if] [in], [DFname(string) dest(string)]
-      if `"`dfname'"'=="" local dfname df
-        else confirm names `dfname'
-      if `"`dest'"'=="" local dest `varlist'
-        else confirm names `dest'
-      plugin call _julia `varlist' `if' `in', PutVarsToDF `"`dfname'"' _dest `:strlen local dest'
+    else if `"`cmd'"'=="UpPkg" {
+      syntax namelist
+      if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.update(\"`pkg'\")"
+      else {
+        julia, qui: using Pkg; vals = values(Pkg.dependencies())
+        foreach pkg in `namelist' {
+          qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
+          if !`r(ans)' {
+            di _n "The Julia package `pkg' is not installed." _c
+            di "Attempting to install instead of update it. This could take a few minutes."
+            mata displayflush() 
+            cap julia, qui: Pkg.add("`pkg'")
+            if _rc local failed `failed' `pkg'
+          }
+        }
+      }
+      if "`failed'"!="" {
+        di as err _n "Failed to automatically update the Julia " plural("package", `:word count `failed'') as cmd "`failed'"
+        di as err `"You should be able to update each missing package by running Julia and typing:" _n as cmd "using Pkg"
+        foreach pkg in `failed' {
+          di `"Pkg.add("`pkg'")"'
+        }
+        di _n
+        exit 198
+      }
     }
-    else if `"`cmd'"'=="PutVarsToDFNoMissing" {
-      syntax [varlist] [if] [in], [DFname(string) dest(string)]
-      if `"`dfname'"'=="" local dfname df
-        else confirm names `dfname'
-      if `"`dest'"'=="" local dest `varlist'
-        else confirm names `dest'
-      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`dfname'"' _dest `:strlen local dest'
+    else if inlist(`"`cmd'"', "PutVarsToDF", "PutVarsToDFNoMissing") {
+      syntax [varlist] [if] [in], [DESTination(string) cols(string)]
+      if `"`destination'"'=="" local destination df
+        else confirm names `destination'
+      if `"`cols'"'=="" local cols `varlist'
+      else {
+        confirm names `cols'
+        _assert `:word count `cols''>=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination columns specified.") rc(198) 
+      }
+      plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"' _cols `:strlen local cols'
     }
-    else if `"`cmd'"'=="PutVarsToMat" {
+    else if inlist(`"`cmd'"', "PutVarsToMat", "PutVarsToMatNoMissing") {
       syntax [varlist] [if] [in], DESTination(string)
       confirm names `destination'
-      plugin call _julia `varlist' `if' `in', PutVarsToMat `"`destination'"'
+      plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"'
     }
     else if `"`cmd'"'=="GetVarsFromMat" {
-      syntax [namelist] [if] [in], source(string asis) [replace]
+      syntax namelist [if] [in], source(string asis) [replace]
       confirm names `source'
       if "`replace'"=="" confirm new var `namelist'
       foreach var in `namelist' {
@@ -114,24 +157,22 @@ program define julia, rclass
       }
       plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"'
     }
-    else if `"`cmd'"'=="PutVarsToMatNoMissing" {
-      syntax [varlist] [if] [in], DESTination(string)
-      confirm names `destination'
-      plugin call _julia `varlist' `if' `in', PutVarsToMatNoMissing `"`destination'"' `varlist'
-    }
-    else if `"`cmd'"'=="GetVarsFromDFNoMissing" {
-      syntax [namelist] [if] [in], [DFname(string) replace source(string asis)]
-      if `"`dfname'"'=="" local dfname df
-      if `"`source'"'=="" local source `namelist'
-        else confirm names `source'
+    else if inlist(`"`cmd'"', "GetVarsFromDF", "GetVarsFromDFNoMissing") {
+      syntax namelist [if] [in], [source(string) replace cols(string asis)]
+      if `"`source'"'=="" local source df
+      if `"`cols'"'=="" local cols `namelist'
+      else {
+        confirm names `cols'
+        _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
+      }
       if "`replace'"=="" confirm new var `namelist'
       foreach var in `namelist' {
         cap gen double `var' = .
       }
-      plugin call _julia `namelist' `if' `in', GetVarsFromDFNoMissing `"`dfname'"' _source `:strlen local source'
+      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
-      syntax [name], [source(string asis)]
+      syntax name, [source(string asis)]
       if `"`source'"'=="" local source `namelist'
       qui julia: size(`source', 1)
       local rows `r(ans)'
@@ -140,7 +181,7 @@ program define julia, rclass
       plugin call _julia, GetMatFromMat `namelist' `"`source'"'
     }
     else if `"`cmd'"'=="PutMatToMat" {
-      syntax [name], [DESTination(string)]
+      syntax name, [DESTination(string)]
       if `"`destination'"'=="" local destination `namelist'
       plugin call _julia, PutMatToMat `namelist' `destination'
     }
@@ -170,3 +211,8 @@ end
 
 cap program drop _julia
 program _julia, plugin using(julia.plugin)
+
+
+* Version history
+* 0.5.0 Initial commit
+* 0.5.1 Fixed memory leak in C code. Added documentation. Bug fixes.
