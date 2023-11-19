@@ -18,6 +18,7 @@ d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
 f src/ado/julia.ado
+f src/ado/julia.sthlp
 F src/jl/stataplugininterface.jl
 g WIN64 WIN64/julia.plugin.dll julia.plugin
 g MACARM64 MacARM64/julia.plugin
