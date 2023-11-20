@@ -32,7 +32,7 @@ Number of observations (_N) was 0, now 1,000,000.
 
 . julia: using GLM  // load generalized linear regression package
 
-. julia: lm(@formula(y ~ x), df)  // regress y on x
+. julia: m = lm(@formula(y ~ x), df)  // regress y on x
 StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}, Vector{Int64}}}}, Matrix{Float64}}
 
 y ~ 1 + x
