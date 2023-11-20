@@ -21,9 +21,6 @@ Hello world!
  1.21193   1.64774    0.389649     1.04665  0.584996  1.88493  1.50712
  0.701329  0.0138349  1.9605       1.35383  1.77841   1.93254  1.26002
 
-. display a
--1
-
 . set obs 1000000
 Number of observations (_N) was 0, now 1,000,000.
 
@@ -53,3 +50,9 @@ x             0.999008    0.00099963   999.38    <1e-99   0.997049     1.00097
 . di adjR2
 .49968888
 ```
+
+# To do
+1. Add support for Julia `missing`.
+2. Run `julia:` commands asynchronously in order to allow Ctrl-Break.
+3. Provide much fuller Julia REPL experience.
+4. Multi-thread the data copying subcommands.
