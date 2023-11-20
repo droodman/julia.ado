@@ -51,7 +51,7 @@ x             0.999008    0.00099963   999.38    <1e-99   0.997049     1.00097
 .49968888
 ```
 
-# To do
+## To do
 1. Add support for Julia `missing`.
 2. Run `julia:` commands asynchronously in order to allow Ctrl-Break.
 3. Provide much fuller Julia REPL experience.
