@@ -50,7 +50,6 @@ headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
 ```
 
 ## To do
-1. Add support for Julia `missing`.
-2. Run `julia:` commands asynchronously in order to allow Ctrl-Break.
-3. Provide much fuller Julia REPL experience.
-4. Multi-thread the data copying subcommands.
+1. Run `julia:` commands asynchronously in order to allow Ctrl-Break.
+2. Provide much fuller Julia REPL experience.
+3. Multi-thread the data copying subcommands.
