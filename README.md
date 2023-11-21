@@ -21,34 +21,33 @@ Hello world!
  1.21193   1.64774    0.389649     1.04665  0.584996  1.88493  1.50712
  0.701329  0.0138349  1.9605       1.35383  1.77841   1.93254  1.26002
 
-. set obs 1000000
-Number of observations (_N) was 0, now 1,000,000.
 
-. drawnorm x e
+. sysuse auto
+(1978 automobile data)
 
-. gen y = x + e
-
-. julia PutVarsToDF y x  // push data to Julia DataFrame, named df by default
+. julia PutVarsToDF   // push all numeric data to Julia DataFrame, named df by default
 
 . julia: using GLM  // load generalized linear regression package
 
-. julia: m = lm(@formula(y ~ x), df)  // regress y on x
-StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}, Vector{Int64}}}}, Matrix{Float64}}
+. julia: m = lm(@formula(price ~ mpg + headroom), df)
+StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}, Vec
+> tor{Int64}}}}, Matrix{Float64}}
 
-y ~ 1 + x
+price ~ 1 + mpg + headroom
 
 Coefficients:
-──────────────────────────────────────────────────────────────────────────────────
-                   Coef.   Std. Error       t  Pr(>|t|)    Lower 95%     Upper 95%
-──────────────────────────────────────────────────────────────────────────────────
-(Intercept)  -0.00294632  0.000999724   -2.95    0.0032  -0.00490575  -0.000986899
-x             0.999008    0.00099963   999.38    <1e-99   0.997049     1.00097
-──────────────────────────────────────────────────────────────────────────────────
+─────────────────────────────────────────────────────────────────────────
+                 Coef.  Std. Error      t  Pr(>|t|)  Lower 95%  Upper 95%
+─────────────────────────────────────────────────────────────────────────
+(Intercept)  12683.3     2074.5      6.11    <1e-07   8546.88   16819.7
+mpg           -259.106     58.4248  -4.43    <1e-04   -375.602   -142.61
+headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
+─────────────────────────────────────────────────────────────────────────
 
 . julia: SF_scal_save("adjR2", adjr2(m))
 
-. di adjR2
-.49968888
+. display adjR2
+.20542069
 ```
 
 ## To do
