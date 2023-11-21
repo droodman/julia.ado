@@ -1,7 +1,7 @@
-d 'julia': package to link Stata to Julia
+d 'julia.ado': package to link Stata to Julia
 d
 d The julia.ado package connects Stata to Julia. It provides three
-d connections: 1) A "julia:" prefix command that lets
+d connections: 1) A "jl:" prefix command that lets
 d you send single-line commands from the Stata prompt to Julia 
 d and see the results. 2) Subcommands such as PutVarsToDF for 
 d high-speed copying of data between Julia and Stata. 
@@ -17,10 +17,10 @@ d
 d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
-f src/ado/julia.ado
-f src/ado/julia.sthlp
+f src/ado/jl.ado
+f src/ado/jl.sthlp
 F src/jl/stataplugininterface.jl
-g WIN64 WIN64/julia.plugin.dll julia.plugin
-g MACARM64 MacARM64/julia.plugin
-g OSX.ARM64 MacARM64/julia.plugin
-g LINUX64 LINUX64/julia.plugin
+g WIN64 WIN64/jl.plugin.dll jl.plugin
+g MACARM64 MacARM64/jl.plugin
+g OSX.ARM64 MacARM64/jl.plugin
+g LINUX64 LINUX64/jl.plugin

@@ -1,4 +1,4 @@
-*! boottest 0.5.1 19 November 2023
+*! jl 0.5.2 19 November 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -45,24 +45,24 @@ program define assure_julia_started
     plugin call _julia, start
     global julia_loaded 1  // put here to prevent infinite loop!
     cap noi {
-      julia, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
-      julia, qui: using stataplugininterface
-      cap findfile julia.plugin
+      jl, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
+      jl, qui: using stataplugininterface
+      cap findfile jl.plugin
       if _rc {
-        di as err "Installation problem: can't find julia.plugin, which is part of the julia.ado Stata package."
+        di as err "Installation problem: can't find jl.plugin, which is part of the julia.ado Stata package."
         exit 198
       }
-      julia, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
+      jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
-      julia AddPkg DataFrames
-      julia, qui: using DataFrames
+      jl AddPkg DataFrames
+      jl, qui: using DataFrames
     }
     if _rc global julia_loaded
   }
 end
 
-cap program drop julia
-program define julia, rclass
+cap program drop jl
+program define jl, rclass
   version 14.1
 
   cap _on_colon_parse `0'
@@ -84,14 +84,14 @@ program define julia, rclass
       syntax namelist
       if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
       else {
-        julia, qui: using Pkg; vals = values(Pkg.dependencies())
+        jl, qui: using Pkg; vals = values(Pkg.dependencies())
         foreach pkg in `namelist' {
-          qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
+          qui jl: mapreduce(v->v.name=="`pkg'", +, vals)
           if !`r(ans)' {
             di _n "The Julia package `pkg' is not installed. " _c
             di "Attempting to install it. This could take a few minutes."
             mata displayflush() 
-            cap julia, qui: Pkg.add("`pkg'")  // this is crashing Stata in Ubuntu 22.04
+            cap jl, qui: Pkg.add("`pkg'")  // this is crashing Stata in Ubuntu 22.04
             if _rc local failed `failed' `pkg'
           }
         }
@@ -110,14 +110,14 @@ program define julia, rclass
       syntax namelist
       if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.update(\"`pkg'\")"
       else {
-        julia, qui: using Pkg; vals = values(Pkg.dependencies())
+        jl, qui: using Pkg; vals = values(Pkg.dependencies())
         foreach pkg in `namelist' {
-          qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
+          qui jl: mapreduce(v->v.name=="`pkg'", +, vals)
           if !`r(ans)' {
             di _n "The Julia package `pkg' is not installed." _c
             di "Attempting to install instead of update it. This could take a few minutes."
             mata displayflush() 
-            cap julia, qui: Pkg.add("`pkg'")
+            cap jl, qui: Pkg.add("`pkg'")
             if _rc local failed `failed' `pkg'
           }
         }
@@ -143,8 +143,8 @@ program define julia, rclass
       }
       plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' _cols `:strlen local cols'
       if "`cmd'"=="PutVarsToDF" {
-        julia, qui: allowmissing!(`destination')
-        julia, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
+        jl, qui: allowmissing!(`destination')
+        jl, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
       }
     }
     else if inlist(`"`cmd'"', "PutVarsToMat", "PutVarsToMatNoMissing") {
@@ -173,15 +173,15 @@ program define julia, rclass
       foreach var in `namelist' {
         cap gen double `var' = .
       }
-      if "`cmd'"=="GetVarsFromDF" julia, qui: replace!.(eachcol(`source'), missing=>NaN)
+      if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'), missing=>NaN)
       plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]
       if `"`source'"'=="" local source `namelist'
-      qui julia: size(`source', 1)
+      qui jl: size(`source', 1)
       local rows `r(ans)'
-      qui julia: size(`source', 2)
+      qui jl: size(`source', 2)
       mat `namelist' = J(`rows', `r(ans)', .)
       plugin call _julia, GetMatFromMat `namelist' `"`source'"'
     }
@@ -195,7 +195,7 @@ program define julia, rclass
       exit 198
     }
   }
-  else {  // "julia: ..."
+  else {  // "jl: ..."
     local before = `"`s(before)'"'
     local after = `"`s(after)'"'
     
@@ -215,7 +215,7 @@ program define julia, rclass
 end
 
 cap program drop _julia
-program _julia, plugin using(julia.plugin)
+program _julia, plugin using(jl.plugin)
 
 
 * Version history

@@ -1,6 +1,6 @@
 {smcl}
-{* *! julia 0.5.1 19 November 2023}{...}
-{help julia:julia}
+{* *! jl 0.5.1 19 November 2023}{...}
+{help jl:jl}
 {hline}{...}
 
 {title:Title}
@@ -11,13 +11,13 @@ Bridge to Julia{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:julia}[, {cmdab:qui:etly}]: {it:juliaexpr}
+{cmd:jl}[, {cmdab:qui:etly}]: {it:juliaexpr}
 
 {phang2}
 where {it:juliaexpr} is an expression to be evaluated in Julia.
 
 {phang}
-{cmd:julia} {it:subcommand} [{varlist}], [{it:options}]
+{cmd:jl} {it:subcommand} [{varlist}], [{it:options}]
 
 {synoptset 24 tabbed}{...}
 {synopthdr:subcommand}
@@ -36,45 +36,45 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {p2colreset}{...}
 
 {phang}
-{cmd:julia PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt cols(string)}]
+{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt cols(string)}]
 
 {phang}
-{cmd:julia PutVarsToDFNoMissing} [{varlist}] {ifin}, [{opt cols(string)} {opt dest:ination(string)}]
+{cmd:jl PutVarsToDFNoMissing} [{varlist}] {ifin}, [{opt cols(string)} {opt dest:ination(string)}]
 
 {phang}
-{cmd:julia PutVarsToMat} [{varlist}] {ifin}, [{opt dest:ination(string)}]
+{cmd:jl PutVarsToMat} [{varlist}] {ifin}, [{opt dest:ination(string)}]
 
 {phang}
-{cmd:julia PutVarsToMatNoMissing} [{varlist}] {ifin}, [{opt dest:ination(string)}]
+{cmd:jl PutVarsToMatNoMissing} [{varlist}] {ifin}, [{opt dest:ination(string)}]
 
 {phang}
-{cmd:julia GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source({varlist})} {opt replace}]
+{cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source({varlist})} {opt replace}]
 
 {phang}
-{cmd:julia GetVarsFromMat} {varlist} {ifin}, [{opt source(string)}]
+{cmd:jl GetVarsFromMat} {varlist} {ifin}, [{opt source(string)}]
 
 {phang}
-{cmd:julia PutMatToMat} {it:matname}, [{opt dest:ination(string)}]
+{cmd:jl PutMatToMat} {it:matname}, [{opt dest:ination(string)}]
 
 {phang}
-{cmd:julia GetMatFromMat} {it:matname}, [{opt source(string)}]
+{cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
 
 {phang}
-{cmd:julia AddPkg} {it:namelist}
+{cmd:jl AddPkg} {it:namelist}
 
 {phang}
-{cmd:julia UpPkg} {it:namelist}
+{cmd:jl UpPkg} {it:namelist}
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:julia} gives access from the Stata prompt to the free programming language Julia. It provides three
+{cmd:jl} gives access from the Stata prompt to the free programming language Julia. It provides three
 sorts of tools:
 
 {p 4 7 0}
-1. The {cmd:julia:} prefix command, which allows you to send commands to Julia and see the results. Example: {cmd:julia: 1+1}.
+1. The {cmd:jl:} prefix command, which allows you to send commands to Julia and see the results. Example: {cmd:jl: 1+1}.
 
 {p 4 7 0}
 2. Subcommands, listed above, for high-speed copying of data between Julia and Stata, as well as for installation of Julia packages.
@@ -82,17 +82,17 @@ sorts of tools:
 {p 4 7 0}
 3. An automatically loaded library of Julia functions to allow reading and writing of Stata variables, macros, matrices, and scalars. These
 functions hew closely to those in the {browse "https://www.stata.com/plugins":Stata Plugin Interface}. For example,
-{cmd:julia: SF_macro_save("a", "3")} is equivalent to {cmd:global a 3}.
+{cmd:jl: SF_macro_save("a", "3")} is equivalent to {cmd:global a 3}.
 
 {pstd}
 Because Julia does just-in-time-compilation, sometimes commands take longer on first use. In particular, if you have not installed
-the DataFrames.jl package in Julia, {cmd:julia} will attempt to do so on first use, and that can take a minute or so.
+the DataFrames.jl package in Julia, {cmd:jl} will attempt to do so on first use, and that can take a minute or so.
 
 {pstd}
-The {cmd:julia:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
-{pmore}{inp} julia: local s = 0; for i in 1:10 s += i end; s {p_end}
+The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
+{pmore}{inp} jl: local s = 0; for i in 1:10 s += i end; s {p_end}
 
-{pmore}{inp} julia: {space 11}/// {p_end}
+{pmore}{inp} jl: {space 11}/// {p_end}
 {pmore}{inp} {space 4}local s = 0; {space 1}/// {p_end}
 {pmore}{inp} {space 4}for i in 1:10 /// {p_end}
 {pmore}{inp} {space 8}s += i {space 3}/// {p_end}
@@ -117,7 +117,7 @@ Vector{Union{Missing, Float64}}, and is the standard type for accomodating missi
 {title:Options}
 
 {pstd}
-{cmd:julia,} {opt qui:etly}{cmd::...} is nearly the same as {cmd:quietly julia:...}. The difference
+{cmd:jl,} {opt qui:etly}{cmd::...} is nearly the same as {cmd:quietly jl:...}. The difference
 is that the first will stop the software from copying the output of a Julia command to Stata before suppressing
 that output. This will save time if the output is, say, the contents of a million-element vector.
 
@@ -142,7 +142,7 @@ variables will be created with type double or, if {opt replace} is specified, ov
 {title:Stored results}
 
 {pstd}
-{cmd:julia:}, without the {opt qui:etly} option, stores the output in the macro {cmd:r(ans)}.
+{cmd:jl:}, without the {opt qui:etly} option, stores the output in the macro {cmd:r(ans)}.
 
 
 {title:Stata interface functions}
@@ -153,7 +153,7 @@ The {cmd:julia.ado} package includes, and automatically loads, a Julia module th
 syntax. The functions in module allow one to read and write
 Stata objects from Julia. The major departure in syntax in these Julia versions is that the functions
 that return data, such as an element of a Stata matrix, do so through the return value rather than a
-supplied pointer to a pre-allocated storage location. For example, {cmd:julia: SF_scal_use("X")}
+supplied pointer to a pre-allocated storage location. For example, {cmd:jl: SF_scal_use("X")}
 extracts the value of the Stata scalar {cmd:X}.
 
 {synoptset 62 tabbed}{...}

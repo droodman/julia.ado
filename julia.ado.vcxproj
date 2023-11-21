@@ -79,13 +79,13 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <TargetName>julia.plugin</TargetName>
+    <TargetName>jl.plugin</TargetName>
     <TargetExt>
     </TargetExt>
     <OutDir>$(SolutionDir)WIN64</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>julia.plugin</TargetName>
+    <TargetName>jl.plugin</TargetName>
     <TargetExt>
     </TargetExt>
     <OutDir>$(SolutionDir)WIN64</OutDir>
