@@ -11,7 +11,7 @@ Bridge to Julia{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:jl}[, {cmdab:qui:etly}]: {it:juliaexpr}
+{cmd:jl} [, {cmdab:qui:etly}]: {it:juliaexpr}
 
 {phang2}
 where {it:juliaexpr} is an expression to be evaluated in Julia.
@@ -128,7 +128,7 @@ the variable list will default to {cmd:*}, i.e., all variables in the current da
 their current order.
 
 {pstd}
-The options after the comma in these subcommands refer Julia objects. {opt dest:ination()}
+The options after the comma in these subcommands refer to Julia objects. {opt dest:ination()}
 and {opt source()} name the Julia matrix or DataFrame to be written to or from. When
 a DataFrame name is not provided, it defaults to {cmd:df}. The {opt cols()} option specifies the 
 DataFrame columns to be copied to or from. It defaults to the Stata {varlist} before the comma.
