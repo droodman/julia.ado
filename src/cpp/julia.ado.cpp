@@ -405,7 +405,7 @@ STDLL stata_call(int argc, char *argv[])
     catch (const char* msg) {
         SF_error((char*)msg);
         SF_error((char*)"\n");
-        return(1);
+        return(999);
     }
     return(0);
 }

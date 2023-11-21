@@ -141,7 +141,11 @@ program define julia, rclass
         confirm names `cols'
         _assert `:word count `cols''>=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination columns specified.") rc(198) 
       }
-      plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"' _cols `:strlen local cols'
+      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' _cols `:strlen local cols'
+      if "`cmd'"=="PutVarsToDF" {
+        julia, qui: allowmissing!(`destination')
+        julia, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
+      }
     }
     else if inlist(`"`cmd'"', "PutVarsToMat", "PutVarsToMatNoMissing") {
       syntax [varlist] [if] [in], DESTination(string)
@@ -169,6 +173,7 @@ program define julia, rclass
       foreach var in `namelist' {
         cap gen double `var' = .
       }
+      if "`cmd'"=="GetVarsFromDF" julia, qui: replace!.(eachcol(`source'), missing=>NaN)
       plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols'
     }
     else if `"`cmd'"'=="GetMatFromMat" {

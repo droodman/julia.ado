@@ -22,10 +22,10 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synoptset 24 tabbed}{...}
 {synopthdr:subcommand}
 {synoptline}
-{synopt:{opt PutVarsToDF}}Copy Stata variables to Julia DataFrame, mapping missing to NaN{p_end}
-{synopt:{opt PutVarsToDFNoMissing}}Copy Stata variables to Julia DataFrame; no special handling of missings.{p_end}
-{synopt:{opt PutVarsToMat}}Copy Stata variables to Julia matrix, mapping missing to NaN{p_end}
-{synopt:{opt PutVarsToDFNoMissing}}Copy Stata variables to Julia matrix; no special handling of missings.{p_end}
+{synopt:{opt PutVarsToDF}}Copy Stata variables to Julia DataFrame, handling missings{p_end}
+{synopt:{opt PutVarsToDFNoMissing}}Copy Stata variables to Julia DataFrame; no handling of missings{p_end}
+{synopt:{opt PutVarsToMat}}Copy Stata variables to Julia matrix, handling missings{p_end}
+{synopt:{opt PutVarsToDFNoMissing}}Copy Stata variables to Julia matrix; no handling of missings{p_end}
 {synopt:{opt GetVarsFromDF}}Copy Stata variables from Julia DataFrame, mapping NaN to missing{p_end}
 {synopt:{opt GetVarsFromMat}}Copy Stata variables from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
@@ -101,37 +101,17 @@ The {cmd:julia:} prefix only accepts single-line expressions. But in a .do or .a
 
 {pstd}
 The data-copying subcommands are low-level and high-performance. On the Stata side, they interact with
-the {browse "https://www.stata.com/plugins":Stata Plugin Interface} (SPI). Their minimalist design
-has two important implications for users.
-
-{pstd}
-First, when copying from Stata to Julia, all numeric data, whether stored as {cmd:byte}, {cmd:int}, 
+the {browse "https://www.stata.com/plugins":Stata Plugin Interface} (SPI). As a result, when copying 
+from Stata to Julia, all numeric data, whether stored as {cmd:byte}, {cmd:int}, 
 {cmd:long}, {cmd:float}, or {cmd:double}, is converted
 to {cmd:double}--{cmd:Float64} in Julia--beacuse that is how the SPI provides the values. 
 
 {pstd}
-Second, the routines do not work (properly) with Julia {cmd:missing}. In Julia, {cmd:NaN}
-is a special floating-point value. Stata also represents missing with special floating
-point values. But in Julia, DataFrame columns with potentially missing values are stored in a more complex 
-way (vectors of a Union type). {cmd:missing} is the sole instance of the data type, 
-{cmd:Missing}. For speed, the {cmd:julia} subcommands ignore that complexity. PutVarsToDF maps Stata
-missing to NaN, not {cmd:missing}, so that destintation columns are pure vectors of 
-{cmd:Float64}. PutVarsToDFNoMissing is even lazier (and faster): it maps Stata missings to 
-the same special floating-point values in Julia that they already have in Stata, which is approximately 
-8.98847e307. So PutVarsToDFNoMissing is most appropriate when it is known that there are no missings
-in the data to be copied.
-
-{pstd}
-Similarly, GetVarsFromDF maps Julia NaN to Stata missing. GetVarsFromDFNoMissing 
-makes no effort to recode Julia NaNs; however, NaN appears to map to Stata missing anyway for Stata 
-destination variables of type other than {cmd:double}. Both of these subcommands will map Julia 
-{cmd:missing} to indeterminate values.
-
-{pstd}
-To recode Julia NaN's to {cmd:missing} after copying Stata variables to a new DataFrame {cmd:df}, one
-can type {cmd:julia: allowmissing!(df)} to make the DataFrame capable of holding {cmd:missing} and
-then {cmd:julia: replace!.(eachcol(df), NaN=>missing)}. In the reverse direction, before copying back to Stata, 
-one should type {cmd:julia: replace!.(eachcol(df), missing=>NaN)}.
+The subcommands whose names end with "NoMissing" are intended for data known to contain
+no missing values; they are faster. How they map missing values is indeterminate. In
+contrast, {cmd:PutVarsToDF} maps Stata missing values to Julia {cmd:missing}.
+As a result, columns in the destination DataFrame will have type {cmd:Vector{Float64?}}, which is short for
+Vector{Union{Missing, Float64}}, and is the standard type for accomodating missing values.
 
 
 {title:Options}
