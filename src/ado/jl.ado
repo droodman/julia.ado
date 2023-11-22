@@ -112,7 +112,7 @@ program define jl, rclass
       else {
         jl, qui: using Pkg; vals = values(Pkg.dependencies())
         foreach pkg in `namelist' {
-          qui jl: mapreduce(v->v.name=="`pkg'", +, vals, init=0)
+          qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
           if !`r(ans)' {
             di _n "The Julia package `pkg' is not installed." _c
             di "Attempting to install instead of update it. This could take a few minutes."
