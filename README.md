@@ -4,7 +4,7 @@ This Stata package gives Stata users access to Julia. It contains three kinds of
 2.  Subcommands such as PutVarsToDF for high-speed copying of data between Julia and Stata.
 3.  Julia functions for reading and writing Stata variables, macros, matrices, and scalars.
 
-This package requires that Julia be installed, and the Julia directory be added to the system path, according to [instructions](https://julialang.org/downloads/platform/).
+This package requires that Julia be installed, and the Julia directory be added to the system path, according to [instructions](https://julialang.org/downloads/platform/). It is intended to work in Windows, Linux, and macOS with an Intel or ARM CPU.
 
 ## Examples, all run in Stata
 
@@ -49,7 +49,7 @@ headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
 .20542069
 ```
 
-## To do
+## Possible future extensions
 1. Run `jl:` commands asynchronously in order to allow Ctrl-Break.
 2. Provide fuller Julia REPL experience.
 3. Multi-thread the data copying subcommands.
