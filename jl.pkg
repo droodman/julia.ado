@@ -23,4 +23,6 @@ F src/jl/stataplugininterface.jl
 g WIN64 WIN64/jl.plugin.dll jl.plugin
 g MACARM64 MacARM64/jl.plugin
 g OSX.ARM64 MacARM64/jl.plugin
+g MACINTEL64 MACINTEL64/jl.plugin
+g OSX.X8664 MACINTEL64/jl.plugin
 g LINUX64 LINUX64/jl.plugin
