@@ -81,15 +81,15 @@ program define jl, rclass
     
     if `"`cmd'"'=="AddPkg" {
       syntax namelist
-      if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
-      else {
-        jl, qui: using Pkg; vals = values(Pkg.dependencies())
-        foreach pkg in `namelist' {
-          qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
-          if !`r(ans)' {
-            di _n "The Julia package `pkg' is not installed. " _c
-            di "Attempting to install it. This could take a few minutes."
-            mata displayflush() 
+      jl, qui: using Pkg; vals = values(Pkg.dependencies())
+      foreach pkg in `namelist' {
+        qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
+        if !`r(ans)' {
+          di _n "The Julia package `pkg' is not installed. " _c
+          di "Attempting to install it. This could take a few minutes."
+          mata displayflush() 
+          if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
+          else {
             cap jl, qui: Pkg.add("`pkg'")  // this is crashing Stata in Ubuntu 22.04
             if _rc local failed `failed' `pkg'
           }
@@ -107,15 +107,15 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="UpPkg" {
       syntax namelist
-      if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.update(\"`pkg'\")"
-      else {
-        jl, qui: using Pkg; vals = values(Pkg.dependencies())
-        foreach pkg in `namelist' {
-          qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
-          if !`r(ans)' {
-            di _n "The Julia package `pkg' is not installed." _c
-            di "Attempting to install instead of update it. This could take a few minutes."
-            mata displayflush() 
+      jl, qui: using Pkg; vals = values(Pkg.dependencies())
+      foreach pkg in `namelist' {
+        qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
+        if !`r(ans)' {
+          di _n "The Julia package `pkg' is not installed." _c
+          di "Attempting to install instead of update it. This could take a few minutes."
+          mata displayflush() 
+          if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.update(\"`pkg'\")"
+          else {
             cap jl, qui: Pkg.add("`pkg'")
             if _rc local failed `failed' `pkg'
           }
