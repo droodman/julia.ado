@@ -54,7 +54,7 @@ program define assure_julia_started
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       jl AddPkg DataFrames
-      jl, qui: using DataFrames
+      jl, qui: using Pkg, DataFrames
     }
     if _rc global julia_loaded
   }
@@ -81,9 +81,8 @@ program define jl, rclass
     
     if `"`cmd'"'=="AddPkg" {
       syntax namelist
-      jl, qui: using Pkg; vals = values(Pkg.dependencies())
       foreach pkg in `namelist' {
-        qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
+        qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
           di _n "The Julia package `pkg' is not installed. " _c
           di "Attempting to install it. This could take a few minutes."
@@ -107,9 +106,8 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="UpPkg" {
       syntax namelist
-      jl, qui: using Pkg; vals = values(Pkg.dependencies())
       foreach pkg in `namelist' {
-        qui jl: mapreduce(v->v.name=="`pkg'", +, vals; init=0)
+        qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
           di _n "The Julia package `pkg' is not installed." _c
           di "Attempting to install instead of update it. This could take a few minutes."
