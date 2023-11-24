@@ -89,7 +89,8 @@ Because Julia does just-in-time-compilation, sometimes commands take longer on f
 the DataFrames.jl package in Julia, {cmd:jl} will attempt to do so on first use, and that can take a minute or so.
 
 {pstd}
-For {cmd:jl} to function properly, Julia must be installed and the system variable JULIA_DIR must point to its location. Installation
+This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function properly, 
+Julia must be installed and the system variable JULIA_DIR must point to its location. Installation
 via the {cmd:juliaup} package is strongly recommended. Instructions are {browse "https://github.com/JuliaLang/juliaup#installation":here}.
 
 {pstd}
