@@ -36,10 +36,10 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {p2colreset}{...}
 
 {phang}
-{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt cols(string)}]
+{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)}]
 
 {phang}
-{cmd:jl PutVarsToDFNoMissing} [{varlist}] {ifin}, [{opt cols(string)} {opt dest:ination(string)}]
+{cmd:jl PutVarsToDFNoMissing} [{varlist}] {ifin}, [{opt col:s(string)} {opt dest:ination(string)}]
 
 {phang}
 {cmd:jl PutVarsToMat} [{varlist}] {ifin}, [{opt dest:ination(string)}]
@@ -89,10 +89,14 @@ Because Julia does just-in-time-compilation, sometimes commands take longer on f
 the DataFrames.jl package in Julia, {cmd:jl} will attempt to do so on first use, and that can take a minute or so.
 
 {pstd}
+For {cmd:jl} to function properly, Julia must be installed and the system variable JULIA_DIR must point to its location. Installation
+via the {cmd:juliaup} package is strongly recommended. Instructions are {browse "https://github.com/JuliaLang/juliaup#installation":here}.
+
+{pstd}
 The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
 {pmore}{inp} jl: local s = 0; for i in 1:10 s += i end; s {p_end}
 
-{pmore}{inp} jl: {space 11}/// {p_end}
+{pmore}{inp} jl: {space 14}/// {p_end}
 {pmore}{inp} {space 4}local s = 0; {space 1}/// {p_end}
 {pmore}{inp} {space 4}for i in 1:10 /// {p_end}
 {pmore}{inp} {space 8}s += i {space 3}/// {p_end}
@@ -101,7 +105,7 @@ The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado 
 
 {pstd}
 The data-copying subcommands are low-level and high-performance. On the Stata side, they interact with
-the {browse "https://www.stata.com/plugins":Stata Plugin Interface} (SPI). As a result, when copying 
+the {browse "https://www.stata.com/plugins":Stata Plugin Interface} (SPI). When copying 
 from Stata to Julia, all numeric data, whether stored as {cmd:byte}, {cmd:int}, 
 {cmd:long}, {cmd:float}, or {cmd:double}, is converted
 to {cmd:double}--{cmd:Float64} in Julia--beacuse that is how the SPI provides the values. 
@@ -178,7 +182,7 @@ extracts the value of the Stata scalar {cmd:X}.
 {synopt:{bf:SF_scal_use(scal::AbstractString)}}Return scalar scal{p_end}
 {synopt:{bf:SF_row(mat::AbstractString)}}Number of rows of matrix mat{p_end}
 {synopt:{bf:SF_col(mat::AbstractString)}}Number of columns of matrix mat{p_end}
-{synopt:{bf:SF_macro_save(mac::AbstractString, tosave::AbstractString)}}Set macro value{p_end}
+{synopt:{bf:SF_macro_save(mac::AbstractString, tosave::AbstractString)}}Set global macro{p_end}
 {synopt:{bf:SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real)}}mat[i,j] = val{p_end}
 {synopt:{bf:SF_mat_el(mat::AbstractString, i::Int, j::Int)}}Return mat[i,j]{p_end}
 {synopt:{bf:SF_display(s::AbstractString)}}Print to Stata results window{p_end}
@@ -198,5 +202,6 @@ extracts the value of the Stata scalar {cmd:X}.
 {pstd}
 This project was inspired by James Fiedler's {browse "https://ideas.repec.org/c/boc/bocode/s457688.html":Python plugin for Stata} (as perhaps
 was Stata's support for Python).
+
 
 

@@ -37,21 +37,20 @@ program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
-    cap findfile stataplugininterface.jl
+    cap plugin call _julia, start
     if _rc {
-      di as err "Installation problem: can't find stataplugininterface.jl, which is part of the julia.ado Stata package."
+      di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that the system"
+      di as err "variable JULIA_DIR point to the Julia directory."
+      di as err `"Installation via {cmd:juliaup} is strongly recommended. Instructions are {browse "https://github.com/JuliaLang/juliaup#installation":here}."'
       exit 198
     }
-    plugin call _julia, start
-    global julia_loaded 1  // put here to prevent infinite loop!
+    global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
+
+    findfile stataplugininterface.jl
     cap noi {
       jl, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
       jl, qui: using stataplugininterface
-      cap findfile jl.plugin
-      if _rc {
-        di as err "Installation problem: can't find jl.plugin, which is part of the julia.ado Stata package."
-        exit 198
-      }
+      findfile jl.plugin
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       jl AddPkg DataFrames
@@ -133,7 +132,7 @@ program define jl, rclass
       }
     }
     else if inlist(`"`cmd'"', "PutVarsToDF", "PutVarsToDFNoMissing") {
-      syntax [varlist] [if] [in], [DESTination(string) cols(string)]
+      syntax [varlist] [if] [in], [DESTination(string) COLs(string)]
       if `"`destination'"'=="" local destination df
         else confirm names `destination'
       if `"`cols'"'=="" local cols `varlist'
@@ -162,7 +161,7 @@ program define jl, rclass
       plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"'
     }
     else if inlist(`"`cmd'"', "GetVarsFromDF", "GetVarsFromDFNoMissing") {
-      syntax namelist [if] [in], [source(string) replace cols(string asis)]
+      syntax namelist [if] [in], [source(string) replace COLs(string asis)]
       if `"`source'"'=="" local source df
       if `"`cols'"'=="" local cols `namelist'
       else {
