@@ -4,7 +4,9 @@ This Stata package gives Stata users access to Julia. It contains three kinds of
 2.  Subcommands such as PutVarsToDF for high-speed copying of data between Julia and Stata.
 3.  Julia functions for reading and writing Stata variables, macros, matrices, and scalars.
 
-This package requires that Julia be installed, and the Julia directory be added to the system path. Installation [via juliaup](https://github.com/JuliaLang/juliaup#installation) is strongly recommended. The package works in Windows, Linux, and macOS with an Intel CPU or "Apple Silicon."
+This package requires that Julia be installed, and the Julia directory be added to the system path. The easiest way to assure that state
+of affairs in Linux and macOS is to install Julia [via the installation manager juliaup](https://github.com/JuliaLang/juliaup#installation). Unfortunately, the easiest way to do that
+in Windows is to [install the latest version of Julia directly](https://julialang.org/downloads/platform/), making sure to check the box for "Add Julia To PATH".
 
 ## Examples, all run in Stata
 
