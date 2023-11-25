@@ -90,8 +90,10 @@ the DataFrames.jl package in Julia, {cmd:jl} will attempt to do so on first use,
 
 {pstd}
 This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function properly, 
-Julia must be installed and the system variable JULIA_DIR must point to its location. Installation
-via the {cmd:juliaup} package is strongly recommended. Instructions are {browse "https://github.com/JuliaLang/juliaup#installation":here}.
+Julia must be installed and the system variable JULIA_DIR must point to its location. The easiest way to assure that state
+of affairs in Linux and macOS is to install Julia {browse "https://github.com/JuliaLang/juliaup#mac-and-linux":via the installation manager juliaup}. Unfortunately, 
+the easiest way to do that in Windows is to {browse "https://julialang.org/downloads/platform":install the latest version of Julia directly}--{it:not}
+from the Windows Store--making sure to check the box for "Add Julia To PATH".
 
 {pstd}
 The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
