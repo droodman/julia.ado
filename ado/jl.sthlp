@@ -211,4 +211,3 @@ This project was inspired by James Fiedler's {browse "https://ideas.repec.org/c/
 was Stata's support for Python).
 
 
-
