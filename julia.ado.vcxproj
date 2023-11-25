@@ -19,11 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\cpp\julia.ado.cpp" />
-    <ClCompile Include="src\cpp\stplugin.c" />
+    <ClCompile Include="cpp\julia.ado.cpp" />
+    <ClCompile Include="cpp\stplugin.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\cpp\stplugin.h" />
+    <ClInclude Include="cpp\stplugin.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

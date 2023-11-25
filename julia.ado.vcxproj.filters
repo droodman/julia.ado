@@ -15,15 +15,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\cpp\julia.ado.cpp">
+    <ClCompile Include="cpp\julia.ado.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\cpp\stplugin.c">
+    <ClCompile Include="cpp\stplugin.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\cpp\stplugin.h">
+    <ClInclude Include="cpp\stplugin.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

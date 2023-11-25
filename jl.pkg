@@ -18,7 +18,7 @@ d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
 f src/ado/jl.ado
-f src/ado/jl.sthlp
+f doc/jl.sthlp
 F src/jl/stataplugininterface.jl
 g WIN64 WIN64/jl.plugin.dll jl.plugin
 g MACARM64 MACARM64/jl.plugin

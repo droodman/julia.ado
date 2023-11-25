@@ -72,6 +72,7 @@ STDLL_bool jlSF_is_missing(ST_double z) { return(SF_is_missing(z)); }
 STDLL jlSF_missval(void) { return(SV_missval); }
 STDLL_int jlSF_varindex(char* s, ST_int abbrev) { return(SF_varindex(s, abbrev)); }
 
+
 STDLL stata_call(int argc, char *argv[])
 {
 #define BUFLEN 1000
@@ -87,7 +88,7 @@ STDLL stata_call(int argc, char *argv[])
             return(0);
         }
 
-        // argv[0] = "stop": terminate Julia instance
+        // argv[0] = "stop": terminate Julia instance, or anyway prep it for termination
         if (!strcmp(argv[0], "stop")) {
             jl_atexit_hook(0);
             return(0);
