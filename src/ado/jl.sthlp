@@ -89,11 +89,6 @@ Because Julia does just-in-time-compilation, sometimes commands take longer on f
 the DataFrames.jl package in Julia, {cmd:jl} will attempt to do so on first use, and that can take a minute or so.
 
 {pstd}
-This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function properly, 
-Julia must be installed and the system variable JULIA_DIR must point to its location. Installation
-via the {cmd:juliaup} package is strongly recommended. Instructions are {browse "https://github.com/JuliaLang/juliaup#installation":here}.
-
-{pstd}
 The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
 {pmore}{inp} jl: local s = 0; for i in 1:10 s += i end; s {p_end}
 
@@ -117,6 +112,17 @@ no missing values; they are faster. How they map missing values is indeterminate
 contrast, {cmd:PutVarsToDF} maps Stata missing values to Julia {cmd:missing}.
 As a result, columns in the destination DataFrame will have type {cmd:Vector{Float64?}}, which is short for
 Vector{Union{Missing, Float64}}, and is the standard type for accomodating missing values.
+
+
+{marker installation}{...}
+{title:Installing Julia}
+
+{pstd}
+This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function properly, 
+Julia must be installed and the system variable JULIA_DIR must point to its location. The easiest way to assure that state
+of affairs in Linux and macOS is to install Julia {browse "https://github.com/JuliaLang/juliaup#mac-and-linux":via the installation manager juliaup}. Unfortunately, 
+the easiest way to do that in Windows is to {browse "https://julialang.org/downloads/platform":install the latest version of Julia directly}--{it:not}
+from the Windows Store--making sure to check the box for "Add Julia To PATH".
 
 
 {title:Options}
@@ -203,6 +209,5 @@ extracts the value of the Stata scalar {cmd:X}.
 {pstd}
 This project was inspired by James Fiedler's {browse "https://ideas.repec.org/c/boc/bocode/s457688.html":Python plugin for Stata} (as perhaps
 was Stata's support for Python).
-
 
 
