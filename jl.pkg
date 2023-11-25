@@ -17,12 +17,12 @@ d
 d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
-f ado/jl.ado
-f doc/jl.sthlp
-F jl/stataplugininterface.jl
-g WIN64 WIN64/jl.plugin.dll jl.plugin
-g MACARM64 MACARM64/jl.plugin
-g OSX.ARM64 MACARM64/jl.plugin
-g MACINTEL64 MACINTEL64/jl.plugin
-g OSX.X8664 MACINTEL64/jl.plugin
-g LINUX64 LINUX64/jl.plugin
+f jl.ado
+f jl.sthlp
+F stataplugininterface.jl
+g WIN64 jl.pluginWIN64 jl.plugin
+g MACARM64 jl.pluginMACARM64 jl.plugin
+g OSX.ARM64 jl.pluginMACARM64 jl.plugin
+g MACINTEL64 jl.pluginMACINTEL64 jl.plugin
+g OSX.X8664 jl.pluginMACINTEL64 jl.plugin
+g LINUX64 jl.pluginLINUX64 jl.plugin
