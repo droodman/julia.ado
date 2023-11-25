@@ -1,4 +1,4 @@
-*! jl 0.5.5 24 November 2023
+*! jl 0.5.6 25 November 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -222,3 +222,4 @@ program _julia, plugin using(jl.plugin)
 * 0.5.1 Fixed memory leak in C code. Added documentation. Bug fixes.
 * 0.5.4 Bug and documentation fixes.
 * 0.5.5 Tweaks
+* 0.5.6 File reorganization
