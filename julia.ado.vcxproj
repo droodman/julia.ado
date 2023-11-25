@@ -88,7 +88,7 @@
     <TargetName>jl.plugin</TargetName>
     <TargetExt>
     </TargetExt>
-    <OutDir>$(SolutionDir)WIN64</OutDir>
+    <OutDir>.\WIN64</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

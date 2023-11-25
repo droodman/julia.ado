@@ -1,4 +1,4 @@
-*! jl 0.5.2 19 November 2023
+*! jl 0.5.4 24 November 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -46,15 +46,15 @@ program define assure_julia_started
     }
     global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
 
-    findfile stataplugininterface.jl
+    qui findfile stataplugininterface.jl
     cap noi {
       jl, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
       jl, qui: using stataplugininterface
-      findfile jl.plugin
+      qui findfile jl.plugin
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       jl AddPkg DataFrames
-      jl, qui: using Pkg, DataFrames
+      jl, qui: using DataFrames
     }
     if _rc global julia_loaded
   }
@@ -81,6 +81,7 @@ program define jl, rclass
     
     if `"`cmd'"'=="AddPkg" {
       syntax namelist
+      jl, qui: using Pkg
       foreach pkg in `namelist' {
         qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
@@ -106,6 +107,7 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="UpPkg" {
       syntax namelist
+      jl, qui: using Pkg
       foreach pkg in `namelist' {
         qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
@@ -218,3 +220,4 @@ program _julia, plugin using(jl.plugin)
 * Version history
 * 0.5.0 Initial commit
 * 0.5.1 Fixed memory leak in C code. Added documentation. Bug fixes.
+* 0.5.4 Bug and documentation fixes.
