@@ -46,15 +46,15 @@ program define assure_julia_started
     }
     global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
 
-    findfile stataplugininterface.jl
+    qui findfile stataplugininterface.jl
     cap noi {
       jl, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
       jl, qui: using stataplugininterface
-      findfile jl.plugin
+      qui findfile jl.plugin
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       jl AddPkg DataFrames
-      jl, qui: using Pkg, DataFrames
+      jl, qui: using DataFrames
     }
     if _rc global julia_loaded
   }
@@ -81,6 +81,7 @@ program define jl, rclass
     
     if `"`cmd'"'=="AddPkg" {
       syntax namelist
+      jl, qui: using Pkg
       foreach pkg in `namelist' {
         qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
@@ -106,6 +107,7 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="UpPkg" {
       syntax namelist
+      jl, qui: using Pkg
       foreach pkg in `namelist' {
         qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
