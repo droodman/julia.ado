@@ -20,9 +20,10 @@ d
 f jl.ado
 f jl.sthlp
 F stataplugininterface.jl
-g WIN64 jl.pluginWIN64.dll jl.plugin
-g MACARM64 jl.pluginMACARM64 jl.plugin
-g OSX.ARM64 jl.pluginMACARM64 jl.plugin
-g MACINTEL64 jl.pluginMACINTEL64 jl.plugin
-g OSX.X8664 jl.pluginMACINTEL64 jl.plugin
-g LINUX64 jl.pluginLINUX64 jl.plugin
+G WIN64 jl.pluginWIN64.dll jl.plugin
+G MACARM64 jl.pluginMACARM64 jl.plugin
+G OSX.ARM64 jl.pluginMACARM64 jl.plugin
+G MACINTEL64 jl.pluginMACINTEL64 jl.plugin
+G OSX.X8664 jl.pluginMACINTEL64 jl.plugin
+G LINUX64 jl.pluginLINUX64 jl.plugin
+h jl.plugin
