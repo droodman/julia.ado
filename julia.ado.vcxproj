@@ -79,16 +79,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <TargetName>jl.plugin</TargetName>
+    <TargetName>jl.pluginWIN64</TargetName>
     <TargetExt>
     </TargetExt>
-    <OutDir>$(SolutionDir)WIN64</OutDir>
+    <OutDir>D:\OneDrive\Documents\Macros\julia.ado</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>jl.plugin</TargetName>
+    <TargetName>jl.pluginWIN64</TargetName>
     <TargetExt>
     </TargetExt>
-    <OutDir>.\WIN64</OutDir>
+    <OutDir>D:\OneDrive\Documents\Macros\julia.ado</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
