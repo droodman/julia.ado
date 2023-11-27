@@ -1,18 +1,22 @@
 d 'julia.ado': package to link Stata to Julia
 d
-d The julia.ado package connects Stata to Julia. It provides three
-d connections: 1) A "jl:" prefix command that lets
-d you send single-line commands from the Stata prompt to Julia 
-d and see the results. 2) Subcommands such as PutVarsToDF for 
-d high-speed copying of data between Julia and Stata. 
-d 3) Julia functions for reading and writing Stata variables, 
-d macros, matrices, and scalars. The package requires Stata 
-d version 14.1 or later and Julia 1.9 or later (free). It runs 
+d  This package interfaces to the free programming language
+d Julia. It provides three connections: 1) A "jl:" prefix 
+d command that lets you send single-line commands from the 
+d Stata prompt to Julia and see the results. 2) Subcommands
+d such as PutVarsToDF for high-speed copying of data between 
+d Julia and Stata. 3) Julia functions for reading and writing 
+d Stata variables, macros, matrices, and scalars. It runs 
 d in 64-bit Windows, Linux, or macOS with an Intel or ARM CPU.
+d On Intel Macs, it may require at least macOS 11 (Big Sur) or 
+d 12 (Monterey) to run reliably.
 d
 d KW: Julia
+d KW: plugins
 d
-d Requires: Stata >=14.1, Julia >=1.9
+d Requires: Stata version 14.1 and Julia 1.9
+d
+d Distribution-Date: 20231126
 d
 d Author: David Roodman
 d Support: email david@@davidroodman.com
@@ -20,9 +24,10 @@ d
 f jl.ado
 f jl.sthlp
 F stataplugininterface.jl
-g WIN64 jl.pluginWIN64.dll jl.plugin
-g MACARM64 jl.pluginMACARM64 jl.plugin
-g OSX.ARM64 jl.pluginMACARM64 jl.plugin
-g MACINTEL64 jl.pluginMACINTEL64 jl.plugin
-g OSX.X8664 jl.pluginMACINTEL64 jl.plugin
-g LINUX64 jl.pluginLINUX64 jl.plugin
+G WIN64 jl.pluginWIN64.dll jl.plugin
+G MACARM64 jl.pluginMACARM64 jl.plugin
+G OSX.ARM64 jl.pluginMACARM64 jl.plugin
+G MACINTEL64 jl.pluginMACINTEL64 jl.plugin
+G OSX.X8664 jl.pluginMACINTEL64 jl.plugin
+G LINUX64 jl.pluginLINUX64 jl.plugin
+h jl.plugin

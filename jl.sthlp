@@ -85,8 +85,7 @@ functions hew closely to those in the {browse "https://www.stata.com/plugins":St
 {cmd:jl: SF_macro_save("a", "3")} is equivalent to {cmd:global a 3}.
 
 {pstd}
-Because Julia does just-in-time-compilation, sometimes commands take longer on first use. In particular, if you have not installed
-the DataFrames.jl package in Julia, {cmd:jl} will attempt to do so on first use, and that can take a minute or so.
+Because Julia does just-in-time-compilation, sometimes commands take longer on first use.
 
 {pstd}
 The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
@@ -118,11 +117,29 @@ Vector{Union{Missing, Float64}}, and is the standard type for accomodating missi
 {title:Installing Julia}
 
 {pstd}
-This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function properly, 
-Julia must be installed and the system variable JULIA_DIR must point to its location. The easiest way to assure that state
-of affairs in Linux and macOS is to install Julia {browse "https://github.com/JuliaLang/juliaup#mac-and-linux":via the installation manager juliaup}. Unfortunately, 
-the easiest way to do that in Windows is to {browse "https://julialang.org/downloads/platform":install the latest version of Julia directly}--{it:not}
-from the Windows Store--making sure to check the box for "Add Julia To PATH".
+This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function, 
+Julia must be installed and the Julia /bin directory must be present in the system search path. The easiest way to assure that state
+of affairs depends on your operating system:
+
+{p 4 6 0}
+* In {bf:Linux}, install Julia {browse "https://github.com/JuliaLang/juliaup#mac-and-linux":via the installation manager juliaup}. As documented
+at that link, installation requires a single command.
+
+{p 4 6 0}
+* Unfortunately, if you install via juliaup in Windows or macOS, Stata will not be able to find Julia. Instead, download and install
+the {browse "https://julialang.org/downloads":current stable release} of Julia and follow the
+{browse "https://julialang.org/downloads/platform/":platform-specific instructions}--ignoring any 
+advice to use juliaup--in order to assure that the needed Julia directory is in the system path. In {bf:Windows}, that just requires checking "Add Julia to PATH"
+in a dialog box during installation.
+
+{p 4 6 0}
+* In {bf:macOS}, after installation, you need to {browse "https://support.apple.com/guide/terminal/open-or-quit-terminal-apd5265185d-f365-44cb-8b09-71a064a42125":open a Terminal}
+and execute the three command lines under "macOS" in the {browse "https://julialang.org/downloads/platform/":platform-specific instructions}. On Intel Macs, 
+{cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey) to run reliably. On computers not officially supported by those editions, one can use 
+the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade anyway--at your own risk.
+
+{pstd} If the Julia package DataFrames.jl is not installed, {cmd:jl} will attempt to install it on first
+use. {it:That requires an Internet connection and can take several minutes.}
 
 
 {title:Options}
