@@ -8,6 +8,10 @@ This package requires that Julia be installed, and the Julia directory be added 
 of affairs in Linux and macOS is to install Julia [via the installation manager juliaup](https://github.com/JuliaLang/juliaup#mac-and-linux). Unfortunately, the easiest way to do that
 in Windows is to [install the latest version of Julia directly](https://julialang.org/downloads/platform/), making sure to check the box for "Add Julia To PATH".
 
+## Requirements
+* Julia 1.9.4 or later
+* Stata 14.1 or later
+  
 ## Examples, all run in Stata
 
 ```
