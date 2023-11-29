@@ -37,6 +37,16 @@ program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
+//     tempfile tempfile
+//     tempname f
+//     if c(os)=="Windows" !julia -E"Sys.BINDER"                            > `tempfile'
+//                    else !julia -E"joinpath(dirname(Sys.BINDER), \"lib\"" > `tempfile'
+//     cap frame drop `f'
+//     frame create `f'
+//     frame `f': insheet path using "`tempfile'", nonames
+//     frame `f': global julia_lib_path = path
+//     frame drop `f'
+
     cap plugin call _julia, start
     if _rc {
       di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that the system"

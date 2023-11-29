@@ -118,15 +118,15 @@ Vector{Union{Missing, Float64}}, and is the standard type for accomodating missi
 
 {pstd}
 This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function, 
-Julia must be installed and the Julia /bin directory must be present in the system search path. The easiest way to assure that state
-of affairs depends on your operating system:
+Julia must be installed and Julia's core library, "libjulia.dll" or "libjulia.so" must be visible in certain search paths. The 
+easiest way to assure that state of affairs depends on your operating system:
 
 {p 4 6 0}
 * In {bf:Linux}, install Julia {browse "https://github.com/JuliaLang/juliaup#mac-and-linux":via the installation manager juliaup}. As documented
 at that link, installation requires a single command.
 
 {p 4 6 0}
-* Unfortunately, if you install via juliaup in Windows or macOS, Stata will not be able to find Julia. Instead, download and install
+* Unfortunately, if you install via juliaup in Windows or macOS, Stata will not be able to find "libjulia". Instead, download and install
 the {browse "https://julialang.org/downloads":current stable release} of Julia and follow the
 {browse "https://julialang.org/downloads/platform/":platform-specific instructions}--ignoring any 
 advice to use juliaup--in order to assure that the needed Julia directory is in the system path. In {bf:Windows}, that just requires checking "Add Julia to PATH"
@@ -139,8 +139,33 @@ and execute the three command lines under "macOS" in the {browse "https://julial
 the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade anyway--at your own risk.
 
 {pstd} If the Julia package DataFrames.jl is not installed, {cmd:jl} will attempt to install it on first
-use. {it:That requires an Internet connection and can take several minutes.}
+use. That can take a minute.
 
+
+{marker threads}{...}
+{title:Setting the number of CPU threads}
+
+{pstd}
+Many Julia programs exploit multithreading. However, Julia is typically installed to only allow 1 thread by default. To 
+change this default for {cmd:jl}, edit your operating system's JULIA_NUM_THREADS environment variable. Set it to an integer such as 4 or 8,
+or to "auto" to let Julia decide. On CPUs with hyperthreading or efficiency (E) cores as well as performance (P) cores,
+the optimal number is usually not the maximum the CPU technically supports. A good guess at the optimum is the number of P cores.
+
+{pstd}
+How to set this variable also depends on the operating system:
+
+{p 4 6 0}
+* In Linux, add "export JULIA_NUM_THREADS=auto" (as an example) to the text file "~/.bashrc". Restart the terminal window.
+
+{p 4 6 0}
+* Similarly, in macOS, add such a line to "~/.zshenv".
+
+{p 4 6 0}
+* In Windows, use the Environment Variables control panel to add JULIA_NUM_THREADS. One route to that dialog box is to press the Windows logo
+button on the keyboard and type "environment variables".
+
+{pstd}
+To determine how many threads are available in a {cmd:jl} session, type "{stata "jl: Threads.nthreads()"}" at the Stata prompt.
 
 {title:Options}
 
