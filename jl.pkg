@@ -14,7 +14,7 @@ d
 d KW: Julia
 d KW: plugins
 d
-d Requires: Stata version 14.1 and Julia 1.9
+d Requires: Stata version 14.1 and Julia 1.9.4
 d
 d Distribution-Date: 20231126
 d
