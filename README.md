@@ -13,7 +13,7 @@ ssc install julia
 * Julia 1.9.4 or later, installed following the instructions obtained via `help jl` after installing this pacakge.
 * Stata 14.1 or later
   
-## Examples, all run in Stata
+## Examples
 
 ```
 . jl: "Hello world!"
