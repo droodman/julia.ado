@@ -1,4 +1,4 @@
-*! jl 0.5.6 25 November 2023
+*! jl 0.6.0 30 November 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -37,21 +37,16 @@ program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
-//     tempfile tempfile
-//     tempname f
-//     if c(os)=="Windows" !julia -E"Sys.BINDER"                            > `tempfile'
-//                    else !julia -E"joinpath(dirname(Sys.BINDER), \"lib\"" > `tempfile'
-//     cap frame drop `f'
-//     frame create `f'
-//     frame `f': insheet path using "`tempfile'", nonames
-//     frame `f': global julia_lib_path = path
-//     frame drop `f'
-
-    cap plugin call _julia, start
+    tempfile tempfile
+    cap {
+      !julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'
+      mata st_local("libpath", fget(fh = fopen("`tempfile'", "r"))); _fclose(fh)
+      plugin call _julia, start "`libpath'"
+    }
     if _rc {
-      di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that the system"
-      di as err "variable JULIA_DIR point to the Julia directory."
-      di as err `"Installation via {cmd:juliaup} is strongly recommended. Instructions are {browse "https://github.com/JuliaLang/juliaup#installation":here}."'
+      di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that you are"
+      di as err `"able to start it by typing "julia" in a terminal window (though you won't normally need to)."'
+      di as err `"Installation via {browse "https://github.com/JuliaLang/juliaup#installation":juliaup} is recommended."'
       exit 198
     }
     global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
@@ -233,3 +228,4 @@ program _julia, plugin using(jl.plugin)
 * 0.5.4 Bug and documentation fixes.
 * 0.5.5 Tweaks
 * 0.5.6 File reorganization
+* 0.6.0 Implemented dynamic runtime loading of libjulia for robustness to Julia installation type

@@ -82,13 +82,13 @@
     <TargetName>jl.pluginWIN64</TargetName>
     <TargetExt>
     </TargetExt>
-    <OutDir>D:\OneDrive\Documents\Macros\julia.ado</OutDir>
+    <OutDir>D:\OneDrive\Documents\Macros\julia.ado\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>jl.pluginWIN64</TargetName>
     <TargetExt>
     </TargetExt>
-    <OutDir>D:\OneDrive\Documents\Macros\julia.ado</OutDir>
+    <OutDir>D:\OneDrive\Documents\Macros\julia.ado\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -126,7 +126,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;JULIAADO_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(JULIA_DIR)\include\julia\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(JULIA_DIR)\include\julia\;C:\Users\drood\.julia\juliaup\julia-1.9.4+0.x64.w64.mingw32\include\julia</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
@@ -135,7 +135,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(JULIA_DIR)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a;</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -146,7 +146,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;JULIAADO_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(JULIA_DIR)\include\julia\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(JULIA_DIR)\include\julia\;C:\Users\drood\.julia\juliaup\julia-1.9.4+0.x64.w64.mingw32\include\julia</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
@@ -157,7 +157,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(JULIA_DIR)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a;</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
