@@ -59,16 +59,16 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
     jl_sym_t* (*jl_symbol)(const char*);
 } julia_fptrs;
 
-#define JL_eval_string julia_fptrs.jl_eval_string
-#define JL_init julia_fptrs.jl_init
-#define JL_atexit_hook julia_fptrs.jl_atexit_hook
-#define JL_unbox_float64 julia_fptrs.jl_unbox_float64
-#define JL_unbox_int64 julia_fptrs.jl_unbox_int64
+#define JL_eval_string        julia_fptrs.jl_eval_string
+#define JL_init               julia_fptrs.jl_init
+#define JL_atexit_hook        julia_fptrs.jl_atexit_hook
+#define JL_unbox_float64      julia_fptrs.jl_unbox_float64
+#define JL_unbox_int64        julia_fptrs.jl_unbox_int64
 #define JL_exception_occurred julia_fptrs.jl_exception_occurred
-#define JL_call2 julia_fptrs.jl_call2
-#define JL_base_module julia_fptrs.jl_base_module
-#define JL_get_global julia_fptrs.jl_get_global
-#define JL_symbol julia_fptrs.jl_symbol
+#define JL_call2              julia_fptrs.jl_call2
+#define JL_base_module        julia_fptrs.jl_base_module
+#define JL_get_global         julia_fptrs.jl_get_global
+#define JL_symbol             julia_fptrs.jl_symbol
 
 #if SYSTEM==STWIN32
 #include "windows.h"
@@ -123,12 +123,12 @@ jl_value_t* safeJL_eval_string(const char* cmd) {
     return ret;
 }
 
+#define BUFLEN 4096
+char buf[BUFLEN];
+
 // Stata entry point
 STDLL stata_call(int argc, char *argv[])
 {
-#define BUFLEN 1000
-    char buf[BUFLEN];
-
     if (!argc) return 0;
 
     try {

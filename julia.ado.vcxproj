@@ -134,8 +134,8 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(JULIA_DIR)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(JULIA_DIR)\lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a;userenv.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -156,8 +156,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(JULIA_DIR)\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(JULIA_DIR)\lib;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);libjulia.dll.a;libopenlibm.dll.a;userenv.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

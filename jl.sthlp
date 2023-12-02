@@ -118,7 +118,7 @@ Vector{Union{Missing, Float64}}, and is the standard type for accomodating missi
 
 {pstd}
 This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function, 
-Julia must be installed and Julia's core library, "libjulia.dll" or "libjulia.so" must be visible in certain search paths. The 
+Julia 1.9 or later must be installed and Julia's core library, "libjulia.dll" or "libjulia.so" must be visible in certain search paths. The 
 easiest way to assure that state of affairs depends on your operating system:
 
 {p 4 6 0}
@@ -137,6 +137,9 @@ in a dialog box during installation.
 and execute the three command lines under "macOS" in the {browse "https://julialang.org/downloads/platform/":platform-specific instructions}. On Intel Macs, 
 {cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey) to run reliably. On computers not officially supported by those editions, one can use 
 the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade anyway--at your own risk.
+
+{pstd}
+Then restart Stata.
 
 {pstd} If the Julia package DataFrames.jl is not installed, {cmd:jl} will attempt to install it on first
 use. That can take a minute.

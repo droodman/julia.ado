@@ -32,15 +32,30 @@ program define display_multiline
   di `"`s'"'
 end
 
+// Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath local; error otherwise
+cap program drop wheresjulia
+program define wheresjulia, rclass
+  tempfile tempfile
+  !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'
+  mata st_local("libpath", fget(fh = fopen("`tempfile'", "r"))); _fclose(fh)
+  c_local libpath `libpath'
+end
+
 cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
-    tempfile tempfile
     cap {
-      !julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'
-      mata st_local("libpath", fget(fh = fopen("`tempfile'", "r"))); _fclose(fh)
+      cap wheresjulia
+      cap if _rc & c(os)!="Windows" wheresjulia ~/.juliaup/bin/
+      cap if _rc & c(os)=="MacOSX" {
+        forvalues v=9/20 {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-1836577702
+          cap wheresjulia /Applications/Julia-1.`v'.app/Contents/Resources/julia/bin/
+          if !_rc continue, break
+        }
+      }
+      if _rc error _rc
       plugin call _julia, start "`libpath'"
     }
     if _rc {
@@ -72,8 +87,10 @@ program define jl, rclass
   cap _on_colon_parse `0'
   if _rc {
     if `"`1'"'=="stop" {
-      plugin call _julia, stop
-      global julia_loaded
+      if 0$julia_loaded {
+        plugin call _julia, stop
+        global julia_loaded
+      }
       exit
     }
     

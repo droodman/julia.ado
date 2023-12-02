@@ -365,3 +365,4 @@ FodyWeavers.xsd
 Steps to compile julia.docx
 src/ado/unit tests.do
 src/ado/benchmarks.do
+cpp/scraps.txt
