@@ -1,4 +1,4 @@
-*! jl 0.6.0 30 November 2023
+*! jl 0.6.0 2 December 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
