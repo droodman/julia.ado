@@ -117,29 +117,20 @@ Vector{Union{Missing, Float64}}, and is the standard type for accomodating missi
 {title:Installing Julia}
 
 {pstd}
-This package is designed to work in 64-bit Windows, Linux, and MacOSX (with an Intel or Apple CPU). For it to function, 
-Julia 1.9 or later must be installed and Julia's core library, "libjulia.dll" or "libjulia.so" must be visible in certain search paths. The 
-easiest way to assure that state of affairs depends on your operating system:
+This package is designed for 64-bit Windows, Linux, and macOS, the last on an Intel or Apple CPU. It requires 
+Julia 1.9.4 or higher. As documented {browse "https://github.com/JuliaLang/juliaup#installation":here}, the easiest way to
+install it in Windows is from the {browse "https://apps.microsoft.com/detail/9NJNWW8PVKMN":Microsoft Store}; and the 
+easiest way to install it in Linux and macOS is with the shell command:
 
-{p 4 6 0}
-* In {bf:Linux}, install Julia {browse "https://github.com/JuliaLang/juliaup#mac-and-linux":via the installation manager juliaup}. As documented
-at that link, installation requires a single command.
+{pin}{cmd:curl -fsSL https://install.julialang.org | sh}
 
-{p 4 6 0}
-* Unfortunately, if you install via juliaup in Windows or macOS, Stata will not be able to find "libjulia". Instead, download and install
-the {browse "https://julialang.org/downloads":current stable release} of Julia and follow the
-{browse "https://julialang.org/downloads/platform/":platform-specific instructions}--ignoring any 
-advice to use juliaup--in order to assure that the needed Julia directory is in the system path. In {bf:Windows}, that just requires checking "Add Julia to PATH"
-in a dialog box during installation.
-
-{p 4 6 0}
-* In {bf:macOS}, after installation, you need to {browse "https://support.apple.com/guide/terminal/open-or-quit-terminal-apd5265185d-f365-44cb-8b09-71a064a42125":open a Terminal}
-and execute the three command lines under "macOS" in the {browse "https://julialang.org/downloads/platform/":platform-specific instructions}. On Intel Macs, 
-{cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey) to run reliably. On computers not officially supported by those editions, one can use 
+{pstd}
+On Intel Macs, 
+{cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey). On computers not officially supported by those editions, one can use 
 the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade anyway--at your own risk.
 
 {pstd}
-Then restart Stata.
+After installing Julia, restart Stata for good measure.
 
 {pstd} If the Julia package DataFrames.jl is not installed, {cmd:jl} will attempt to install it on first
 use. That can take a minute.
