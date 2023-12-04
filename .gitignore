@@ -366,3 +366,10 @@ Steps to compile julia.docx
 src/ado/unit tests.do
 src/ado/benchmarks.do
 cpp/scraps.txt
+temp
+temp.cpp
+test/Project1/Project1.sln
+test/Project1/Project1.vcxproj.filters
+test/Project1/Project1.vcxproj
+cpp/stplugin.lib
+cpp/stplugin.exp

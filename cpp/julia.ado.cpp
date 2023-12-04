@@ -97,10 +97,10 @@ int load_julia(const char* libpath) {
     JL_call2 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call2");
     JL_base_module = (jl_module_t*)GetProcAddress(hDLL, "jl_base_module");
     JL_get_global = (jl_value_t * (*)(jl_module_t*, jl_sym_t*))GetProcAddress(hDLL, "jl_get_global");
-    JL_symbol = (jl_sym_t * (*)(const char*))GetProcAddress(hDLL, "jl_get_global");
+    JL_symbol = (jl_sym_t * (*)(const char*))GetProcAddress(hDLL, "jl_symbol");
 
-    return JL_eval_string == NULL || JL_init == NULL || JL_atexit_hook == NULL || JL_unbox_float64 == NULL || 
-                                     JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL || JL_base_module == NULL;
+    return JL_eval_string == NULL || JL_init == NULL || JL_atexit_hook == NULL || JL_unbox_float64 == NULL || JL_get_global == NULL ||
+           JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL || JL_base_module == NULL || JL_symbol == NULL;
 }
 
 
@@ -110,7 +110,7 @@ STATIC_INLINE jl_function_t* JL_get_function(jl_module_t* m, const char* name)
 }
 
 
-jl_value_t* safeJL_eval_string(const char* cmd) {
+jl_value_t* safe_JL_eval_string(const char* cmd) {
     jl_value_t* ret = JL_eval_string(cmd);
     if (jl_value_t* ex = JL_exception_occurred()) {
         JL_call2(
@@ -137,8 +137,9 @@ STDLL stata_call(int argc, char *argv[])
         if (!strcmp(argv[0], "start")) {
             if (load_julia(argv[1]))
                 return 998;
+return(800);
             JL_init();
-            safeJL_eval_string("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
+            safe_JL_eval_string("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
             return 0;
         }
 
@@ -155,8 +156,8 @@ STDLL stata_call(int argc, char *argv[])
             if (argc > 1) {
                 size_t len = sizeof(char) * (strlen(argv[1]) + 200);
                 char* evalbuf = (char*)malloc(len);
-                snprintf(evalbuf, len, (char*)"show(_Stata_context, MIME\"text/plain\"(), begin %s end); String(take!(_Stata_io))", argv[1]);
-                SF_macro_save((char*)"_ans", (char*)jl_string_data(safeJL_eval_string(evalbuf)));
+                snprintf(evalbuf, len, (char*)"show(_Stata_context, MIME\"text/plain\"(), begin (%s) end); String(take!(_Stata_io))", argv[1]);
+                SF_macro_save((char*)"_ans", (char*)jl_string_data(safe_JL_eval_string(evalbuf)));
                 free(evalbuf);
             }
             return 0;
@@ -168,8 +169,8 @@ STDLL stata_call(int argc, char *argv[])
             if (argc > 1) {
                 size_t len = sizeof(char) * (strlen(argv[1]) + 70);
                 char* evalbuf = (char*)malloc(len);
-                snprintf(evalbuf, len, (char*)"begin %s; 0 end", argv[1]);
-                safeJL_eval_string(evalbuf);
+                snprintf(evalbuf, len, (char*)"begin (%s); 0 end", argv[1]);
+                safe_JL_eval_string(evalbuf);
                 free(evalbuf);
             }
             return 0;
@@ -187,10 +188,10 @@ STDLL stata_call(int argc, char *argv[])
                 nobs += (*tousej++ = (char)SF_ifobs(j));
 
             snprintf(buf, BUFLEN, "X = Matrix{Float64}(undef, %i, %i); %s = DataFrame(X, :auto, copycols=false); X", nobs, SF_nvars(), argv[1]);
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
 
-            double NaN = JL_unbox_float64(safeJL_eval_string("NaN"));
+            double NaN = JL_unbox_float64(safe_JL_eval_string("NaN"));
 
             char* next_token;
             ST_int maxlen = atoi(argv[3]) + 1;
@@ -209,7 +210,7 @@ STDLL stata_call(int argc, char *argv[])
                     }
                 if (token != NULL) {
                     snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i, token);
-                    (void)safeJL_eval_string(buf);
+                    (void)safe_JL_eval_string(buf);
                     token = strtok_r(NULL, " ", &next_token);
                 }
             }
@@ -228,10 +229,10 @@ STDLL stata_call(int argc, char *argv[])
                 nobs += (*tousej++ = (char)SF_ifobs(j));
 
             snprintf(buf, BUFLEN, "%s = Matrix{Float64}(undef, %i, %i)", argv[1], nobs, SF_nvars());
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
 
-            double NaN = JL_unbox_float64(safeJL_eval_string("NaN"));
+            double NaN = JL_unbox_float64(safe_JL_eval_string("NaN"));
             for (ST_int i = 1; i <= SF_nvars(); i++) {
                 tousej = touse;
                 for (ST_int j = SF_in1(); j <= SF_in2(); j++)
@@ -258,7 +259,7 @@ STDLL stata_call(int argc, char *argv[])
                 nobs += (*tousej++ = (char) SF_ifobs(j));
 
             snprintf(buf, BUFLEN, "X = Matrix{Float64}(undef, %i, %i); %s = DataFrame(X, :auto, copycols=false); X", nobs, SF_nvars(), argv[1]);
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
 
             char* next_token;
@@ -274,7 +275,7 @@ STDLL stata_call(int argc, char *argv[])
                         SF_vdata(i, j, px++);
                 if (token != NULL) {
                     snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i, token);
-                    (void)safeJL_eval_string(buf);
+                    (void)safe_JL_eval_string(buf);
                     token = strtok_r(NULL, " ", &next_token);
                 }
             }
@@ -293,7 +294,7 @@ STDLL stata_call(int argc, char *argv[])
                 nobs += (*tousej++ = (char)SF_ifobs(j));
 
             snprintf(buf, BUFLEN, "%s = Matrix{Float64}(undef, %i, %i)", argv[1], nobs, SF_nvars());
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
             for (ST_int i = 1; i <= SF_nvars(); i++) {
                 tousej = touse;
@@ -310,7 +311,7 @@ STDLL stata_call(int argc, char *argv[])
         // argv[3] = string rendering of length of that macro
         if (!strcmp(argv[0], "GetVarsFromDF")) {
             snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
-            size_t nobs = (size_t)JL_unbox_int64(safeJL_eval_string(buf));
+            size_t nobs = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
 
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
             char* tousej = touse;
@@ -333,10 +334,10 @@ STDLL stata_call(int argc, char *argv[])
             for (ST_int i = 1; i <= SF_nvars(); i++)
                 if (token != NULL) {
                     snprintf(buf, BUFLEN, "let x=parent((%s)[!,:%s]); eltype(x)==Float64 ? x : Array{Float64, ndims(x)}(x) end", argv[1], token);  // assure source matrix is double
-                    jl_value_t* X = safeJL_eval_string(buf);
+                    jl_value_t* X = safe_JL_eval_string(buf);
                     double* maxpx = (double*)jl_array_data(X);
                     snprintf(buf, BUFLEN, "let t=parentindices((%s)[!,:%s]); length(t)==1 ? 1 : t[2] end", argv[1], token);
-                    maxpx += nobs * JL_unbox_int64(safeJL_eval_string(buf));
+                    maxpx += nobs * JL_unbox_int64(safe_JL_eval_string(buf));
                     double* px = maxpx - nobs;  // start of column of interest in data matrix
                     tousej = touse;
                     for (ST_int j = SF_in1(); j <= SF_in2() && px < maxpx; j++)
@@ -357,7 +358,7 @@ STDLL stata_call(int argc, char *argv[])
         // argv[3] = string rendering of length of that macro
         if (!strcmp(argv[0], "GetVarsFromDFNoMissing")) {
             snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
-            size_t nobs = (size_t)JL_unbox_int64(safeJL_eval_string(buf));
+            size_t nobs = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
 
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
             char* tousej = touse;
@@ -378,10 +379,10 @@ STDLL stata_call(int argc, char *argv[])
             for (ST_int i = 1; i <= SF_nvars(); i++)
                 if (token != NULL) {
                     snprintf(buf, BUFLEN, "let x=parent((%s)[!,:%s]); eltype(x)==Float64 ? x : Array{Float64, ndims(x)}(x) end", argv[1], token);  // assure source matrix is double
-                    jl_value_t* X = safeJL_eval_string(buf);
+                    jl_value_t* X = safe_JL_eval_string(buf);
                     double* maxpx = (double*)jl_array_data(X);
                     snprintf(buf, BUFLEN, "let t=parentindices((%s)[!,:%s]); length(t)==1 ? 1 : t[2] end", argv[1], token);
-                    maxpx += nobs * JL_unbox_int64(safeJL_eval_string(buf));
+                    maxpx += nobs * JL_unbox_int64(safe_JL_eval_string(buf));
                     double* px = maxpx - nobs;  // start of column of interest in data matrix
                     tousej = touse;
                     for (ST_int j = SF_in1(); j <= SF_in2() && px < maxpx; j++) {
@@ -399,14 +400,14 @@ STDLL stata_call(int argc, char *argv[])
         // argv[1] = matrix name
         if (!strcmp(argv[0], "GetVarsFromMat")) {
             snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
-            size_t nobs = (size_t)JL_unbox_int64(safeJL_eval_string(buf));
+            size_t nobs = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
             snprintf(buf, BUFLEN, "size(%s,2)", argv[1]);
-            size_t ncols = (size_t)JL_unbox_int64(safeJL_eval_string(buf));
+            size_t ncols = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
             if (SF_nvars() < ncols)
                 ncols = SF_nvars();
 
             snprintf(buf, BUFLEN, "let x=%s; eltype(x)==Float64 ? x : Array{Float64, ndims(x)}(x) end", argv[1]);  // assure source matrix is double
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* _px = (double*)jl_array_data(X);
             double* px = _px;
             for (ST_int i = 1; i <= ncols; i++) {
@@ -423,11 +424,11 @@ STDLL stata_call(int argc, char *argv[])
         // argv[2] = Julia matrix name
         if (!strcmp(argv[0], "GetMatFromMat")) {
             snprintf(buf, BUFLEN, "size(%s,1)", argv[2]);
-            size_t nrows = (size_t)JL_unbox_int64(safeJL_eval_string(buf));
+            size_t nrows = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
             snprintf(buf, BUFLEN, "size(%s,2)", argv[2]);
-            size_t ncols = (size_t)JL_unbox_int64(safeJL_eval_string(buf));
+            size_t ncols = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
             snprintf(buf, BUFLEN, "let x=%s; eltype(x)==Float64 ? x : Array{Float64, ndims(x)}(x) end", argv[2]);  // assure source matrix is double
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
             for (ST_int i = 1; i <= ncols; i++)
                 for (ST_int j = 1; j <= nrows; j++)
@@ -444,10 +445,10 @@ STDLL stata_call(int argc, char *argv[])
             ST_int ncols = SF_col(matname);
             snprintf(buf, BUFLEN, "%s = Matrix{Float64}(undef, %i, %i)", argv[2], nrows, ncols);
 
-            jl_value_t* X = safeJL_eval_string(buf);
+            jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
 
-            double NaN = JL_unbox_float64(safeJL_eval_string("NaN"));
+            double NaN = JL_unbox_float64(safe_JL_eval_string("NaN"));
             for (ST_int i = 1; i <= ncols; i++) {
                 for (ST_int j = 1; j <= nrows; j++)
                     SF_mat_el(matname, j, i, px);
