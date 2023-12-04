@@ -138,7 +138,7 @@ STDLL stata_call(int argc, char *argv[])
             if (load_julia(argv[1]))
                 return 998;
             JL_init();
-return(800);
+
             safe_JL_eval_string("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
             return 0;
         }
