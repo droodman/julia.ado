@@ -56,7 +56,9 @@ program define assure_julia_started
         }
       }
       if _rc error _rc
-      plugin call _julia, start "`libpath'"
+//       plugin call _julia, start "`libpath'"
+noi display "`libpath'"
+exit
     }
     if _rc {
       di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that you are"
