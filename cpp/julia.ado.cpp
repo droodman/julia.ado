@@ -77,15 +77,21 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #else
 #include <dlfcn.h>
 #define HINSTANCE void *
-#define LoadLibraryA(a) dlopen((a), RTLD_LAZY)
 #define GetProcAddress dlsym
 #define FreeLibrary dlclose
 #endif
 
 HINSTANCE hDLL;
 
-int load_julia(const char* libpath) {
-    hDLL = LoadLibraryA(libpath);
+int load_julia(const char* fulllibpath, const char *libdir) {
+
+#if SYSTEM==STWIN32
+    SetCurrentDirectoryA(libdir);
+    hDLL = LoadLibraryExA(fulllibpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+#else
+    hDLL = dlopen(fulllibpath, RTLD_LAZY);
+#endif
+
     if (hDLL == NULL) return 999;
 
     JL_eval_string = (jl_value_t * (*)(const char*))GetProcAddress(hDLL, "jl_eval_string");
@@ -133,9 +139,10 @@ STDLL stata_call(int argc, char *argv[])
 
     try {
         // argv[0] = "start": initiate Julia instance
-        // argv[1] = path to libjulia-internal
+        // argv[1] = full path to libjulia
+        // argv[2] = directory part of argv[1], used in Windows only
         if (!strcmp(argv[0], "start")) {
-            if (load_julia(argv[1]))
+            if (load_julia(argv[1], argv[2]))
                 return 998;
             JL_init();
 

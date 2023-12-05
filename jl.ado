@@ -1,3 +1,4 @@
+
 *! jl 0.6.0 2 December 2023
 *! Copyright (C) 2023 David Roodman
 
@@ -32,13 +33,15 @@ program define display_multiline
   di `"`s'"'
 end
 
-// Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath local; error otherwise
+// Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
 program define wheresjulia, rclass
   tempfile tempfile
   !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'
-  mata st_local("libpath", fget(fh = fopen("`tempfile'", "r"))); _fclose(fh)
+  mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
+  mata st_local("libpath", _juliapath); st_local("libname", _julialibname)
   c_local libpath `libpath'
+  c_local libname `libname'
 end
 
 cap program drop assure_julia_started
@@ -56,7 +59,7 @@ program define assure_julia_started
         }
       }
       if _rc error _rc
-      plugin call _julia, start "`libpath'"
+      plugin call _julia, start "`libpath'/`libname'" "`libpath'"
     }
     if _rc {
       di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that you are"
@@ -65,6 +68,14 @@ program define assure_julia_started
       exit 198
     }
     global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
+
+    qui jl: Int(VERSION < v"1.9.4")
+    if `r(ans)' {
+      di as err _n "jl requires that Julia 1.9.4 or higher be installed and accessible by default."
+      di as err "See the Installation section of the {help jl##installation:jl help file}."
+      global julia_loaded
+      exit 198
+    }
 
     qui findfile stataplugininterface.jl
     cap noi {
