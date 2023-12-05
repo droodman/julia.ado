@@ -118,8 +118,8 @@ program define jl, rclass
       foreach pkg in `namelist' {
         qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
         if !`r(ans)' {
-          di _n "The Julia package `pkg' is not installed. " _c
-          di "Attempting to install it. This could take a few minutes."
+          di as txt "The Julia package `pkg' is not installed. " _c
+          di "Attempting to install it. This could take a few minutes." _n 
           mata displayflush() 
           if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
           else {
