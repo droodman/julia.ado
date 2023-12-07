@@ -1,4 +1,4 @@
-*! jl 0.7.0 7 December 2023
+*! jl 0.7.1 7 December 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -35,6 +35,7 @@ end
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
 program define wheresjulia, rclass
+  version 14.1
   tempfile tempfile
   !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'
   mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
@@ -93,6 +94,11 @@ end
 cap program drop jl
 program define jl, rclass
   version 14.1
+
+  if `"`0'"'=="version" {
+    return local version 0.7.1
+    exit
+  }
 
   cap _on_colon_parse `0'
   if _rc {
