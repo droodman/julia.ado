@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 0.5.1 19 November 2023}{...}
+{* *! jl 0.7.0 7dec2023}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -19,7 +19,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {phang}
 {cmd:jl} {it:subcommand} [{varlist}], [{it:options}]
 
-{synoptset 24 tabbed}{...}
+{synoptset 22 tabbed}{...}
 {synopthdr:subcommand}
 {synoptline}
 {synopt:{opt PutVarsToDF}}Copy Stata variables to Julia DataFrame, handling missings{p_end}
@@ -30,8 +30,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt GetVarsFromMat}}Copy Stata variables from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
 {synopt:{opt GetMatFromMat}}Copy Stata matrix from Julia matrix, mapping NaN to missing{p_end}
-{synopt:{opt AddPkg}}Install Julia packages if not already installed{p_end}
-{synopt:{opt UpPkg}}Update Julia packages{p_end}
+{synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -60,10 +59,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
 
 {phang}
-{cmd:jl AddPkg} {it:namelist}
-
-{phang}
-{cmd:jl UpPkg} {it:namelist}
+{cmd:jl AddPkg} {it:name}, [{opt min:ver(string)}]
 
 
 {marker description}{...}
@@ -85,7 +81,7 @@ functions hew closely to those in the {browse "https://www.stata.com/plugins":St
 {cmd:jl: SF_macro_save("a", "3")} is equivalent to {cmd:global a 3}.
 
 {pstd}
-Because Julia does just-in-time-compilation, sometimes commands take longer on first use.
+Because Julia does just-in-time-compilation, Julia-based commands take longer on first use.
 
 {pstd}
 The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
@@ -111,6 +107,10 @@ no missing values; they are faster. How they map missing values is indeterminate
 contrast, {cmd:PutVarsToDF} maps Stata missing values to Julia {cmd:missing}.
 As a result, columns in the destination DataFrame will have type {cmd:Vector{Float64?}}, which is short for
 Vector{Union{Missing, Float64}}, and is the standard type for accomodating missing values.
+
+{pstd}
+The {cmd:AddPkg} subcommand will update a package to the latest version in Julia's general registry if the package is not installed at all, or if
+the current version is below that set by the optional {opt min:ver()} option.
 
 
 {marker installation}{...}

@@ -1,5 +1,4 @@
-
-*! jl 0.6.0 2 December 2023
+*! jl 0.7.0 7 December 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -113,55 +112,43 @@ program define jl, rclass
     local 0 `*'
     
     if `"`cmd'"'=="AddPkg" {
-      syntax namelist
+      syntax name, [MINver(string)]
       jl, qui: using Pkg
-      foreach pkg in `namelist' {
-        qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
-        if !`r(ans)' {
-          di as txt "The Julia package `pkg' is not installed. " _c
-          di "Attempting to install it. This could take a few minutes." _n 
-          mata displayflush() 
-          if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.add(\"`pkg'\")"
-          else {
-            cap jl, qui: Pkg.add("`pkg'")  // this is crashing Stata in Ubuntu 22.04
-            if _rc local failed `failed' `pkg'
+      qui jl: Int("`namelist'" in keys(Pkg.project().dependencies))
+      if `r(ans)' {
+        if `"`minver'"'!="" {
+          qui jl: length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v"`minver'">v.version])
+          if `r(ans)' {
+            di as txt "The Julia package `namelist' is not up to date. Attempting to update it. This could take a few minutes." _n 
+            mata displayflush() 
+            cap {
+              if c(os)=="Unix" {
+                !julia -E"using Pkg; Pkg.update(\"`namelist'\")"
+              }
+              else jl, qui: Pkg.update("`namelist'")  // this crashes Stata in Ubuntu 22.04
+            }
+            if _rc {
+              di as err _n "Failed to update the Julia package `namelist'."
+              di as err "You should be able to install it by running Julia and typing:" _n as cmd `"using Pkg; Pkg.update("`namelist'")"'
+              exit 198
+            }
           }
         }
       }
-      if "`failed'"!="" {
-        di as err _n "Failed to automatically install the Julia " plural("package", `:word count `failed'') as cmd "`failed'"
-        di as err `"You should be able to install each missing package by running Julia and typing: _n as cmd "using Pkg"
-        foreach pkg in `failed' {
-          di `"Pkg.add("`pkg'")"'
-        }
-        di _n
-        exit 198
-      }
-    }
-    else if `"`cmd'"'=="UpPkg" {
-      syntax namelist
-      jl, qui: using Pkg
-      foreach pkg in `namelist' {
-        qui jl: Int("`pkg'" in keys(Pkg.project().dependencies))
-        if !`r(ans)' {
-          di _n "The Julia package `pkg' is not installed." _c
-          di "Attempting to install instead of update it. This could take a few minutes."
-          mata displayflush() 
-          if c(os)=="Unix" cap !julia -E"using Pkg; Pkg.update(\"`pkg'\")"
-          else {
-            cap jl, qui: Pkg.add("`pkg'")
-            if _rc local failed `failed' `pkg'
+      else {
+        di as txt "The Julia package `namelist' is not installed. Attempting to install it. This could take a few minutes." _n 
+        mata displayflush() 
+        cap {
+          if c(os)=="Unix" {
+            !julia -E"using Pkg; Pkg.add(\"`namelist'\")"
           }
+          else jl, qui: Pkg.add("`namelist'")  // this crashes Stata in Ubuntu 22.04
         }
-      }
-      if "`failed'"!="" {
-        di as err _n "Failed to automatically update the Julia " plural("package", `:word count `failed'') as cmd "`failed'"
-        di as err `"You should be able to update each missing package by running Julia and typing:" _n as cmd "using Pkg"
-        foreach pkg in `failed' {
-          di `"Pkg.add("`pkg'")"'
+        if _rc {
+          di as err _n "Failed to install the Julia package `namelist'."
+          di as err "You should be able to install it by running Julia and typing:" _n as cmd `"using Pkg; Pkg.add("`namelist'")"'
+          exit 198
         }
-        di _n
-        exit 198
       }
     }
     else if inlist(`"`cmd'"', "PutVarsToDF", "PutVarsToDFNoMissing") {
@@ -257,3 +244,5 @@ program _julia, plugin using(jl.plugin)
 * 0.5.5 Tweaks
 * 0.5.6 File reorganization
 * 0.6.0 Implemented dynamic runtime loading of libjulia for robustness to Julia installation type
+* 0.6.2 Fixed 0.6.0 crashes in Windows
+* 0.7.0 Dropped UpPkg and added minver() option to AddPkg
