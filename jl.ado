@@ -24,12 +24,16 @@ program define wheresjulia, rclass
   tempfile tempfile
   cap {
     !`1'julia -e 'using Libdl; println(dlpath( "libjulia" ))' > `tempfile'  // fails in Windows
-    mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
+    mata pathsplit(_fget(fh = _fopen("`tempfile'", "r")), _juliapath="", _julialibname="")
   }
-  if _rc {
+  if _rc cap {
+    cap mata _fclose(fh)
     !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'  // fails in RH Linux
-    mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
+    mata pathsplit(_fget(fh = _fopen("`tempfile'", "r")), _juliapath="", _julialibname="")
   }
+  local rc = _rc
+  cap mata _fclose(fh)
+  error `rc'
   mata st_local("libpath", _juliapath); st_local("libname", _julialibname)
   c_local libpath `libpath'
   c_local libname `libname'
@@ -48,7 +52,7 @@ program define assure_julia_started
           if !_rc continue, break
         }
       }
-      if _rc error _rc
+      error _rc
       plugin call _julia, start "`libpath'/`libname'" "`libpath'"
     }
     if _rc {
