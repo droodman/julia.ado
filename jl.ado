@@ -254,3 +254,4 @@ end
 * 0.6.0 Implemented dynamic runtime loading of libjulia for robustness to Julia installation type
 * 0.6.2 Fixed 0.6.0 crashes in Windows
 * 0.7.0 Dropped UpPkg and added minver() option to AddPkg
+* 0.7.1 Try single as well as double quotes in !julia
