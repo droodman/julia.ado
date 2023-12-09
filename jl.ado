@@ -1,4 +1,4 @@
-*! jl 0.7.1 7 December 2023
+*! jl 0.7.1 8 December 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -17,34 +17,24 @@
 *! Version history at bottom
 
 
-* properly print a string with newlines
-cap program drop display_multiline
-program define display_multiline
-  version 14.1
-  tempname t
-  local s `0'
-  scalar `t' = strpos(`"`s'"', char(10))
-  while `t' {
-    di substr(`"`s'"', 1, `t'-1)
-    local s = substr(`"`s'"', `t'+1, .)
-    scalar `t' = strpos(`"`s'"', char(10))
-  }
-  di `"`s'"'
-end
-
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
 program define wheresjulia, rclass
   version 14.1
   tempfile tempfile
-  !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'
-  mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
+  cap {
+    !`1'julia -e 'using Libdl; println(dlpath( "libjulia" ))' > `tempfile'  // fails in Windows
+    mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
+  }
+  if _rc {
+    !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'  // fails in RH Linux
+    mata pathsplit(fget(fh = fopen("`tempfile'", "r")), _juliapath="", _julialibname=""); _fclose(fh)
+  }
   mata st_local("libpath", _juliapath); st_local("libname", _julialibname)
   c_local libpath `libpath'
   c_local libname `libname'
 end
 
-cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
 
@@ -84,14 +74,13 @@ program define assure_julia_started
       qui findfile jl.plugin
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
-      jl AddPkg DataFrames
+      jl AddPkg DataFrames, minver(1.6.1)
       jl, qui: using DataFrames
     }
     if _rc global julia_loaded
   }
 end
 
-cap program drop jl
 program define jl, rclass
   version 14.1
 
@@ -239,8 +228,21 @@ program define jl, rclass
   return local ans `ans'
 end
 
-cap program drop _julia
 program _julia, plugin using(jl.plugin)
+
+* properly print a string with newlines
+program define display_multiline
+  version 14.1
+  tempname t
+  local s `0'
+  scalar `t' = strpos(`"`s'"', char(10))
+  while `t' {
+    di substr(`"`s'"', 1, `t'-1)
+    local s = substr(`"`s'"', `t'+1, .)
+    scalar `t' = strpos(`"`s'"', char(10))
+  }
+  di `"`s'"'
+end
 
 
 * Version history

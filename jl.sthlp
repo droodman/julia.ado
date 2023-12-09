@@ -47,7 +47,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl PutVarsToMatNoMissing} [{varlist}] {ifin}, [{opt dest:ination(string)}]
 
 {phang}
-{cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source({varlist})} {opt replace}]
+{cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source(string)} {opt replace}]
 
 {phang}
 {cmd:jl GetVarsFromMat} {varlist} {ifin}, [{opt source(string)}]
