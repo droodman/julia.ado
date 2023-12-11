@@ -232,7 +232,7 @@ program define jl, rclass
   return local ans `ans'
 end
 
-program _julia, plugin using("D:\OneDrive\Documents\Macros\julia.ado\jl.pluginWIN64.dll")
+program _julia, plugin using(jl.plugin)
 
 * properly print a string with newlines
 program define display_multiline
