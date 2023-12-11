@@ -1,4 +1,4 @@
-*! jl 0.7.1 8 December 2023
+*! jl 0.7.2 11 December 2023
 *! Copyright (C) 2023 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -259,3 +259,4 @@ end
 * 0.6.2 Fixed 0.6.0 crashes in Windows
 * 0.7.0 Dropped UpPkg and added minver() option to AddPkg
 * 0.7.1 Try single as well as double quotes in !julia. Further attack on Windows crashes on errors.
+* 0.7.2 Better handling of exceptions in Julia 
