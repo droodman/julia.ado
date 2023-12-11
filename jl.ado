@@ -118,7 +118,7 @@ program define jl, rclass
         if `"`minver'"'!="" {
           qui jl: length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v"`minver'">v.version])
           if `r(ans)' {
-            di as txt "The Julia package `namelist' is not up to date. Attempting to update it. This could take a few minutes." _n 
+            di as txt "The Julia package `namelist' is not up-to-date. Attempting to update it. This could take a few minutes." _n 
             mata displayflush() 
             cap {
               if c(os)=="Unix" {
