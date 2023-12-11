@@ -47,16 +47,10 @@ STDLL_int jlSF_varindex(char* s, ST_int abbrev) { return SF_varindex(s, abbrev);
 
 struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-1832621780
     jl_value_t* (*jl_eval_string)(const char*);
-    jl_function_t* (*jl_get_function)(jl_module_t*, const char*);
     void (*jl_init)(void);
     void (*jl_atexit_hook)(int);
     double (*jl_unbox_float64)(jl_value_t*);
     int64_t (*jl_unbox_int64)(jl_value_t*);
-    jl_value_t* (*jl_exception_occurred)(void);
-    jl_value_t* (*jl_call2)(jl_function_t*, jl_value_t*, jl_value_t*);
-    jl_module_t* jl_base_module;
-    jl_value_t* (*jl_get_global)(jl_module_t*, jl_sym_t*);
-    jl_sym_t* (*jl_symbol)(const char*);
 } julia_fptrs;
 
 #define JL_eval_string        julia_fptrs.jl_eval_string
@@ -64,11 +58,6 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_atexit_hook        julia_fptrs.jl_atexit_hook
 #define JL_unbox_float64      julia_fptrs.jl_unbox_float64
 #define JL_unbox_int64        julia_fptrs.jl_unbox_int64
-#define JL_exception_occurred julia_fptrs.jl_exception_occurred
-#define JL_call2              julia_fptrs.jl_call2
-#define JL_base_module        julia_fptrs.jl_base_module
-#define JL_get_global         julia_fptrs.jl_get_global
-#define JL_symbol             julia_fptrs.jl_symbol
 
 #if SYSTEM==STWIN32
 #include "windows.h"
@@ -86,8 +75,8 @@ HINSTANCE hDLL;
 int load_julia(const char* fulllibpath, const char *libdir) {
 
 #if SYSTEM==STWIN32
-    SetCurrentDirectoryA(libdir);
-    hDLL = LoadLibraryExA(fulllibpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+    SetDllDirectoryA(libdir);
+    hDLL = LoadLibraryA(fulllibpath);
 #else
     hDLL = dlopen(fulllibpath, RTLD_LAZY);
 #endif
@@ -99,33 +88,20 @@ int load_julia(const char* fulllibpath, const char *libdir) {
     JL_atexit_hook = (void (*)(int))GetProcAddress(hDLL, "jl_atexit_hook");
     JL_unbox_float64 = (double (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_float64");
     JL_unbox_int64 = (int64_t(*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_int64");
-    JL_exception_occurred = (jl_value_t * (*) (void))GetProcAddress(hDLL, "jl_exception_occurred");
-    JL_call2 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call2");
-    JL_base_module = (jl_module_t*)GetProcAddress(hDLL, "jl_base_module");
-    JL_get_global = (jl_value_t * (*)(jl_module_t*, jl_sym_t*))GetProcAddress(hDLL, "jl_get_global");
-    JL_symbol = (jl_sym_t * (*)(const char*))GetProcAddress(hDLL, "jl_symbol");
 
-    return JL_eval_string == NULL || JL_init == NULL || JL_atexit_hook == NULL || JL_unbox_float64 == NULL || JL_get_global == NULL ||
-           JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL || JL_base_module == NULL || JL_symbol == NULL;
-}
-
-
-STATIC_INLINE jl_function_t* JL_get_function(jl_module_t* m, const char* name)
-{
-    return (jl_function_t*)JL_get_global(m, JL_symbol(name));
+    return JL_eval_string == NULL || JL_init == NULL || JL_atexit_hook == NULL || JL_unbox_float64 == NULL || JL_unbox_int64 == NULL;
 }
 
 
 jl_value_t* safe_JL_eval_string(const char* cmd) {
-    jl_value_t* ret = JL_eval_string(cmd);
-    if (jl_value_t* ex = JL_exception_occurred()) {
-        JL_call2(
-            JL_get_function(JL_base_module, "showerror"),
-            JL_eval_string("_Stata_io"),
-            ex
-        );
-        throw(jl_string_data(JL_eval_string("String(take!(_Stata_io))")));
-    }
+    size_t len = sizeof(char) * (strlen(cmd) + 100);
+    char* evalbuf = (char*)malloc(len);
+    snprintf(evalbuf, len, (char*)"_Stata_err=nothing; try (%s) catch e global _Stata_err=e end", cmd);
+    jl_value_t* ret = JL_eval_string(evalbuf);
+    if (!ret)
+        throw("syntax error");
+    if (JL_unbox_int64(JL_eval_string("Int64(!isnothing(_Stata_err))")))
+        throw(jl_string_data(JL_eval_string("showerror(_Stata_io, _Stata_err); String(take!(_Stata_io))")));
     return ret;
 }
 
@@ -146,7 +122,7 @@ STDLL stata_call(int argc, char *argv[])
                 return 998;
             JL_init();
 
-            safe_JL_eval_string("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
+            JL_eval_string("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
             return 0;
         }
 
@@ -164,7 +140,9 @@ STDLL stata_call(int argc, char *argv[])
                 size_t len = sizeof(char) * (strlen(argv[1]) + 200);
                 char* evalbuf = (char*)malloc(len);
                 snprintf(evalbuf, len, (char*)"show(_Stata_context, MIME\"text/plain\"(), begin (%s) end); String(take!(_Stata_io))", argv[1]);
-                SF_macro_save((char*)"_ans", (char*)jl_string_data(safe_JL_eval_string(evalbuf)));
+                jl_value_t* a = safe_JL_eval_string(evalbuf);
+                char* b = jl_string_data(a);
+                SF_macro_save((char*)"_ans", b);
                 free(evalbuf);
             }
             return 0;
@@ -472,4 +450,16 @@ STDLL stata_call(int argc, char *argv[])
         return 999;
     }
     return 0;
+}
+
+int main() {
+    const char** argv = (const char** ) malloc(3 * sizeof(char*));
+    argv[0] = "start";
+    argv[1] = "C:/Users/drood/.julia/juliaup/julia-1.9.4+0.x64.w64.mingw32/bin/libjulia.dll";
+    argv[2] = "C:/Users/drood/.julia/juliaup/julia-1.9.4+0.x64.w64.mingw32/bin";
+    stata_call(3, (char **) argv);
+
+    argv[0] = "eval";
+    argv[1] = "using StatFiles";
+    stata_call(2, (char**)argv);
 }

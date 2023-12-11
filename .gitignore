@@ -373,3 +373,6 @@ test/Project1/Project1.vcxproj.filters
 test/Project1/Project1.vcxproj
 cpp/stplugin.lib
 cpp/stplugin.exp
+test/Project2/Project2.sln
+test/Project2/Project2.vcxproj.filters
+test/Project2/Project2.vcxproj

@@ -23,12 +23,12 @@ program define wheresjulia, rclass
   version 14.1
   tempfile tempfile
   cap {
-    !`1'julia -e 'using Libdl; println(dlpath( "libjulia" ))' > `tempfile'  // fails in Windows
+    cap mata _fclose(fh)
+    !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'  // fails in RH Linux
     mata pathsplit(_fget(fh = _fopen("`tempfile'", "r")), _juliapath="", _julialibname="")
   }
   if _rc cap {
-    cap mata _fclose(fh)
-    !`1'julia -e "using Libdl; println(dlpath(\"libjulia\"))" > `tempfile'  // fails in RH Linux
+    !`1'julia -e 'using Libdl; println(dlpath( "libjulia" ))' > `tempfile'  // fails in Windows
     mata pathsplit(_fget(fh = _fopen("`tempfile'", "r")), _juliapath="", _julialibname="")
   }
   local rc = _rc
@@ -232,7 +232,7 @@ program define jl, rclass
   return local ans `ans'
 end
 
-program _julia, plugin using(jl.plugin)
+program _julia, plugin using("D:\OneDrive\Documents\Macros\julia.ado\jl.pluginWIN64.dll")
 
 * properly print a string with newlines
 program define display_multiline
@@ -258,4 +258,4 @@ end
 * 0.6.0 Implemented dynamic runtime loading of libjulia for robustness to Julia installation type
 * 0.6.2 Fixed 0.6.0 crashes in Windows
 * 0.7.0 Dropped UpPkg and added minver() option to AddPkg
-* 0.7.1 Try single as well as double quotes in !julia
+* 0.7.1 Try single as well as double quotes in !julia. Further attack on Windows crashes on errors.
