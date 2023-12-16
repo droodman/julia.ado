@@ -39,6 +39,7 @@ program define wheresjulia, rclass
   c_local libname `libname'
 end
 
+cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
 
@@ -85,6 +86,7 @@ program define assure_julia_started
   }
 end
 
+cap program drop jl
 program define jl, rclass
   version 14.1
 
@@ -128,7 +130,7 @@ program define jl, rclass
             }
             if _rc {
               di as err _n "Failed to update the Julia package `namelist'."
-              di as err "You should be able to install it by running Julia and typing:" _n as cmd `"using Pkg; Pkg.update("`namelist'")"'
+              di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.update("`namelist'")}"'
               exit 198
             }
           }
@@ -145,7 +147,7 @@ program define jl, rclass
         }
         if _rc {
           di as err _n "Failed to install the Julia package `namelist'."
-          di as err "You should be able to install it by running Julia and typing:" _n as cmd `"using Pkg; Pkg.add("`namelist'")"'
+          di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.add("`namelist'")}"'
           exit 198
         }
       }

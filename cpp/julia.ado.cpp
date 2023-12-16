@@ -445,18 +445,17 @@ STDLL stata_call(int argc, char *argv[])
             ST_int nrows = SF_row(matname);
             ST_int ncols = SF_col(matname);
             snprintf(buf, BUFLEN, "%s = Matrix{Float64}(undef, %i, %i)", argv[2], nrows, ncols);
-
             jl_value_t* X = safe_JL_eval_string(buf);
             double* px = (double*)jl_array_data(X);
 
             double NaN = JL_unbox_float64(safe_JL_eval_string("NaN"));
-            for (ST_int i = 1; i <= ncols; i++) {
-                for (ST_int j = 1; j <= nrows; j++)
+            for (ST_int i = 1; i <= ncols; i++)
+                for (ST_int j = 1; j <= nrows; j++) {
                     SF_mat_el(matname, j, i, px);
-                if (SF_is_missing((ST_double)*px))
-                    *px = NaN;
-                px++;
-            }
+                    if (SF_is_missing((ST_double)*px))
+                        *px = NaN;
+                    px++;
+                }
             return 0;
         }
     }
@@ -467,16 +466,4 @@ STDLL stata_call(int argc, char *argv[])
         return 999;
     }
     return 0;
-}
-
-int main() {
-    const char** argv = (const char** ) malloc(3 * sizeof(char*));
-    argv[0] = "start";
-    argv[1] = "C:/Users/drood/.julia/juliaup/julia-1.9.4+0.x64.w64.mingw32/bin/libjulia.dll";
-    argv[2] = "C:/Users/drood/.julia/juliaup/julia-1.9.4+0.x64.w64.mingw32/bin";
-    stata_call(3, (char **) argv);
-
-    argv[0] = "eval";
-    argv[1] = "using StatFiles";
-    stata_call(2, (char**)argv);
 }
