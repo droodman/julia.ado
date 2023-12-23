@@ -14,7 +14,7 @@
 * You should have received a copy of the GNU General Public License
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-*! Version history at bottom
+* Version history at bottom
 
 
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
@@ -91,7 +91,11 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
+<<<<<<< Updated upstream
     return local version 0.7.3
+=======
+    return local version 0.7.2
+>>>>>>> Stashed changes
     exit
   }
 
