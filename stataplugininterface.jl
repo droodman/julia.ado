@@ -13,7 +13,6 @@ setdllpath(s::String) = (dllpath[] = s)
 
 Returns the numeric index in the Stata data set for the variable named s.
 """
-
 SF_varindex(s::AbstractString) = @ccall dllpath[].jlSF_varindex(s::Cstring, 1::Cint)::Cint
 
 """
