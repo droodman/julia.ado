@@ -91,7 +91,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 0.7.1
+    return local version 0.7.3
     exit
   }
 
