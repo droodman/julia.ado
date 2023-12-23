@@ -91,11 +91,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-<<<<<<< Updated upstream
     return local version 0.7.3
-=======
-    return local version 0.7.2
->>>>>>> Stashed changes
     exit
   }
 
