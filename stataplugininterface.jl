@@ -32,14 +32,14 @@ SF_var_is_string(i::Int) = @ccall dllpath[].jlSF_var_is_string(i::Cint)::Cchar
 """
     SF_var_is_strl(i::Int)
 
-Checks whether variable i of the Stata data set is a str# variable or a strL variable. It returns 1 if the variable is a strL and 0 otherwise.
+Checks whether variable i of the Stata data set is a str# variable or a strL variable. Returns 1 if the variable is a strL and 0 otherwise.
 """
 SF_var_is_strl(i::Int) = @ccall dllpath[].jlSF_var_is_strl(i::Cint)::Cchar
 
 """
     SF_var_is_binary(i::Int, j::Int)
 
-Checks the jth observation of the ith variable of the Stata data set. It returns 1 if the value is a binary strL and 0 otherwise.
+Checks the jth observation of the ith variable of the Stata data set. Returns 1 if the value is a binary strL and 0 otherwise.
 """
 SF_var_is_binary(i::Int, j::Int) = @ccall dllpath[].jlSF_var_is_binary(i::Cint, j::Cint)::Cchar
 
@@ -64,20 +64,22 @@ SF_in2() = @ccall dllpath[].jlSF_in2()::Cint
 
 """
     SF_col(mat::AbstractString)
-returns the number of columns of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
+
+Returns the number of columns of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
 """
 SF_col(mat::AbstractString) = @ccall dllpath[].jlSF_col(mat::Cstring)::Cint
 
 """
     SF_row(mat::AbstractString)
-returns the number of rows of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
+
+Returns the number of rows of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
 """
 SF_row( mat::AbstractString) = @ccall dllpath[].jlSF_row(mat::Cstring)::Cint
 
 """
     SF_is_missing(z::Real)
 
-Check if z is  Stata "missing".
+Checks if z is  Stata "missing".
 """
 SF_is_missing(z::Real) = @ccall dllpath[].jlSF_is_missing(z::Cdouble)::Cchar
 
@@ -166,7 +168,7 @@ SF_sdata(i::Int, j::Int) =
 """
     SF_mat_el(mat::AbstractString, i::Int, j::Int)
 
-Returns the [i,j] element of Stata matrix mat.
+Returns the [i,j] element of Stata matrix named by mat.
 """
 SF_mat_el(mat::AbstractString, i::Int, j::Int) =
   begin 
@@ -179,7 +181,7 @@ SF_mat_el(mat::AbstractString, i::Int, j::Int) =
 """
     SF_macro_use(mac::AbstractString, maxlen::Int)
 
-Returns the first maxlen characters of Stata macro mac. Local macros can be accessed prefixing their names with "_".
+Returns the first maxlen characters of Stata macro named by mac. Local macros can be accessed prefixing their names with "_".
 """
 SF_macro_use(mac::AbstractString, maxlen::Int) =
   begin 
@@ -192,7 +194,7 @@ SF_macro_use(mac::AbstractString, maxlen::Int) =
 """
     SF_scal_use(scal::AbstractString)
 
-Returns the Stata scalar scal, as a Float64.
+Returns the Stata scalar named by scal, as a Float64.
 """
 SF_scal_use(scal::AbstractString) =
   begin 
