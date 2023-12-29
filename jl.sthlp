@@ -30,6 +30,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt GetVarsFromMat}}Copy Stata variables from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
 {synopt:{opt GetMatFromMat}}Copy Stata matrix from Julia matrix, mapping NaN to missing{p_end}
+{synopt:{opt SetEnv}}Switched to named package environment{p_end}
 {synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -57,6 +58,9 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 
 {phang}
 {cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
+
+{phang}
+{cmd:jl SetEnv} {it:name}
 
 {phang}
 {cmd:jl AddPkg} {it:name}, [{opt min:ver(string)}]
@@ -109,8 +113,19 @@ As a result, columns in the destination DataFrame will have type {cmd:Vector{Flo
 Vector{Union{Missing, Float64}}, and is the standard type for accomodating missing values.
 
 {pstd}
-The {cmd:AddPkg} subcommand will update a package to the latest version in Julia's general registry if the package is not installed at all, or if
-the current version is below that set by the optional {opt min:ver()} option.
+The {cmd:SetEnv} subcommand switches to a package environment associated with the supplied 
+name. This is useful when writing Julia-based Stata programs that need to install certain Julia
+packages. Switching to a dedicated environment minimizes version conflicts with packages
+downloaded for other purposes. The directory used for the dedicated environment will be a 
+subdirectory of Julia's default package environment directory, for example,
+"`~/.julia/environments/v1.10/MyEnvironment". It will be created if it does not exist. If new,
+it will only have the DataFrames package.
+
+{pstd}
+The {cmd:AddPkg} subcommand updates a package to the latest version in Julia's general registry if the package is not installed at all, or if
+the current version is below that set by the optional {opt min:ver()} option. It operates within
+the current Julia package environment. So {cmd:jl AddPkg ...} followed by {cmd:jl SetEnv ...} will generally
+have a different effect than the same commands in the opposite order.
 
 
 {marker installation}{...}
