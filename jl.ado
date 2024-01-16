@@ -1,5 +1,5 @@
-*! jl 0.8.0 28 December 2023
-*! Copyright (C) 2023 David Roodman
+*! jl 0.8.1 16 January 2024
+*! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -125,8 +125,7 @@ program define jl, rclass
       if `notinstalled' | `r(ans)' {
         di as txt "The Julia package `namelist' is not installed and up-to-date. Attempting to update it. This could take a few minutes." _n 
         mata displayflush() 
-        local addcmd Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))
-        jl, qui: `addcmd'
+        jl, qui: Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))
         if _rc {
           di as err _n "Failed to update the Julia package `namelist'."
           di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.update("`namelist'")}"'
@@ -246,3 +245,4 @@ end
 * 0.7.2 Better handling of exceptions in Julia 
 * 0.7.3 Fixed bug in PutMatToMat
 * 0.8.0 Added SetEnv command
+* 0.8.1 Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
