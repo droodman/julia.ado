@@ -125,13 +125,8 @@ program define jl, rclass
       if `notinstalled' | `r(ans)' {
         di as txt "The Julia package `namelist' is not installed and up-to-date. Attempting to update it. This could take a few minutes." _n 
         mata displayflush() 
-        local addcmd Pkg.add(PackageSpec(name="`namelist'" `=cond("`minver'"=="", "", `", version=v"`minver'" "')'))
-        cap {
-          if c(os)=="Unix" {
-            !julia -E"using Pkg; `addcmd'"
-          }
-          else jl, qui: `addcmd'  // this crashes Stata in Ubuntu 22.04
-        }
+        local addcmd Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))
+        jl, qui: `addcmd'
         if _rc {
           di as err _n "Failed to update the Julia package `namelist'."
           di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.update("`namelist'")}"'
