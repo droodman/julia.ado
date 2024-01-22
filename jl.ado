@@ -1,4 +1,4 @@
-*! jl 0.8.1 16 January 2024
+*! jl 0.9.0 22 January 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -81,6 +81,10 @@ program define assure_julia_started
 
       jl AddPkg DataFrames, minver(1.6.1)
       jl, qui: using DataFrames
+      qui jl: String(gensym())
+      global julia_task `"var"`r(ans)'""'
+      qui jl: String(gensym())
+      global julia_time `"var"`r(ans)'""'
     }
     if _rc global julia_loaded
   }
@@ -197,22 +201,29 @@ program define jl, rclass
     }
   }
   else {  // "jl: ..."
-    local before = `"`s(before)'"'
     local after = `"`s(after)'"'
-    
+    local 0 `"`s(before)'"'
+    syntax, [QUIetly INTERruptible]
+    local varlist = cond(c(k),"*","")
     assure_julia_started
 
-    local 0 `before'
-    syntax, [QUIetly]
-    if "`quietly'"!="" plugin call _julia `=cond(c(k),"*","")', evalqui `"`after'"'
-    else {
-      plugin call _julia `=cond(c(k),"*","")', eval `"`after'"'
-      return local ans `ans'
-      local ans `ans'  // strips quote marks
-      if `"`ans'"' != "nothing" display_multiline `ans'
+    if "`interruptible'" != "" {  // Run Julia 1 sec at a time to allow Ctrl-Break, checking if task finished every .01 sec
+      plugin   call _julia `varlist', evalqui `"$julia_task = @async (`after')"'
+      plugin   call _julia, eval `"$julia_time=time()+1; for _ in 1:100 (istaskdone($julia_task) || time()>$julia_time) && break; sleep(.01) end; Int(!istaskdone($julia_task))"'
+      while `ans' {
+        plugin call _julia, eval `"$julia_time=time()+1; for _ in 1:100 (istaskdone($julia_task) || time()>$julia_time) && break; sleep(.01) end; Int(!istaskdone($julia_task))"'
+      }
+      if "`quietly'"=="" plugin call _julia, eval fetch($julia_task)
+    }
+    else plugin call _julia `varlist', eval`=cond("`quietly'"!="","qui","")' `"`after'"'
+
+    if "`quietly'"=="" {
+      return local ans: copy local ans
+      cap noi local ans `ans'  // strips quote marks
+      cap noi if `"`ans'"' != "nothing" display_multiline `ans'
     }
   }
-  return local ans `ans'
+  return local ans: copy local ans
 end
 
 program _julia, plugin using(jl.plugin)
@@ -246,3 +257,4 @@ end
 * 0.7.3 Fixed bug in PutMatToMat
 * 0.8.0 Added SetEnv command
 * 0.8.1 Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
+* 0.9.0 Added interruptible option

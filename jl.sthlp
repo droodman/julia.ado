@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 0.7.0 7dec2023}{...}
+{* *! jl 0.9.0 22jan2024}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -11,7 +11,7 @@ Bridge to Julia{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:jl} [, {cmdab:qui:etly}]: {it:juliaexpr}
+{cmd:jl} [, {cmdab:qui:etly} {cmdab:inter:ruptible}]: {it:juliaexpr}
 
 {phang2}
 where {it:juliaexpr} is an expression to be evaluated in Julia.
@@ -30,7 +30,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt GetVarsFromMat}}Copy Stata variables from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
 {synopt:{opt GetMatFromMat}}Copy Stata matrix from Julia matrix, mapping NaN to missing{p_end}
-{synopt:{opt SetEnv}}Switched to named package environment{p_end}
+{synopt:{opt SetEnv}}Switch to named package environment{p_end}
 {synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -181,7 +181,13 @@ To determine how many threads are available in a {cmd:jl} session, type "{stata 
 {pstd}
 {cmd:jl,} {opt qui:etly}{cmd::...} is nearly the same as {cmd:quietly jl:...}. The difference
 is that the first will stop the software from copying the output of a Julia command to Stata before suppressing
-that output. This will save time if the output is, say, the contents of a million-element vector.
+that output. This will save time if the ou
+
+{pstd}
+The {opt inter:ruptible} option of the {cmd:jl:} prefix command makes it possible, at a small performance cost, to interrupt a Julia command the way you
+interrupt Stata commands, such as with Ctrl-Break (Windows), Command+. (Mac), or the red X icon in the Stata toolbar. Just as 
+with regular Stata commands, the response to an interruption will not always be immediate. For example, a large matrix multiplication
+or inversion operation can delay the response.
 
 {pstd}
 In the data-copying subcommands, the {varlist}'s and {opt matname}'s before the commas always
