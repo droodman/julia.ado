@@ -129,6 +129,7 @@
       <AdditionalIncludeDirectories>$(JULIA_DIR)\include\julia\;C:\Users\drood\.julia\juliaup\julia-1.9.4+0.x64.w64.mingw32\include\julia</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -150,6 +151,7 @@
       <AdditionalIncludeDirectories>$(JULIA_DIR)\include\julia\;C:\Users\drood\.julia\juliaup\julia-1.9.4+0.x64.w64.mingw32\include\julia</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

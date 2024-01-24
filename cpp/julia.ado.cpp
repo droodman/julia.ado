@@ -3,6 +3,13 @@
 #include <string>
 #include "stplugin.h"
 #include <julia.h>
+#include <omp.h>
+
+// #include <ppl.h>
+// using namespace concurrency;
+// using namespace std;
+// #include <execution>
+// namespace execution = std::execution;
 
 #define SF_varindex(s,a) ((_stata_)->stfindvar((s),(a)))
 
@@ -269,17 +276,28 @@ STDLL stata_call(int argc, char *argv[])
             (void)SF_macro_use(argv[2], contents, maxlen);
             char* token = strtok_r(contents, " ", &next_token);
 
-            for (ST_int i = 1; i <= SF_nvars(); i++) {
-                tousej = touse;
-                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                    if (*tousej++)
-                        SF_vdata(i, j, px++);
+//          for (ST_int i = 1; i <= SF_nvars(); i++) {
+//          parallel_for(ST_int(1), SF_nvars(), [px, touse, nobs](ST_int i) {
+omp_set_num_threads(2);
+snprintf(buf, BUFLEN, "Num threads=%i\n", omp_get_num_threads());
+SF_error((char*)buf);
+#pragma omp parallel
+            {
+#pragma omp for
+                for (ST_int i = 1; i <= SF_nvars(); i++) {
+                    char* tousej = touse;
+                    double* pxj = px + (i - 1) * nobs;
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*tousej++)
+                            SF_vdata(i, j, pxj++);
+                }
+            }
+            for (ST_int i = 1; i <= SF_nvars(); i++)
                 if (token != NULL) {
                     snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i, token);
                     (void)safe_JL_eval_string(buf);
                     token = strtok_r(NULL, " ", &next_token);
                 }
-            }
             free(touse);
             free(contents);
             return 0;
