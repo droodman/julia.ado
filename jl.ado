@@ -95,7 +95,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 0.8.0
+    return local version 0.9.0
     exit
   }
 
@@ -179,7 +179,7 @@ program define jl, rclass
         cap gen double `var' = .
       }
       if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'), missing=>NaN)
-      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols'
+      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `:word count `cols''
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]
@@ -257,4 +257,4 @@ end
 * 0.7.3 Fixed bug in PutMatToMat
 * 0.8.0 Added SetEnv command
 * 0.8.1 Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
-* 0.9.0 Added interruptible option
+* 0.9.0 Added interruptible option and multithreaded variable copying
