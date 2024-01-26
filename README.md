@@ -58,4 +58,3 @@ headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
 
 ## Possible extensions
 1. Provide fuller Julia REPL experience.
-2. Multi-thread the data copying subcommands.
