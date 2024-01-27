@@ -146,7 +146,7 @@ program define jl, rclass
         confirm names `cols'
         _assert `:word count `cols''>=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination columns specified.") rc(198) 
       }
-      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' _cols `:strlen local cols'
+      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' `cols'
       if "`cmd'"=="PutVarsToDF" {
         jl, qui: allowmissing!(`destination')
         jl, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
@@ -179,7 +179,7 @@ program define jl, rclass
         cap gen double `var' = .
       }
       if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'), missing=>NaN)
-      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `:word count `cols''
+      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' `cols'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]

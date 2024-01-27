@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include "stplugin.h"
 #include <julia.h>
 
@@ -185,8 +184,7 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "PutVarsToDF": put vars in a new, all-Float64 Julia DataFrame, converting Stata missings to NaN (not to Julia missing)
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
-        // argv[2] = name of Stata macro (beginning with "_" if a local) with names for DataFrame cols
-        // argv[3] = string rendering of length of that macro
+        // argv[2], argv[3]... = names for DataFrame cols
         if (!strcmp(argv[0], "PutVarsToDF")) {
             ST_int nobs = 0;
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
@@ -199,12 +197,6 @@ STDLL stata_call(int argc, char* argv[])
             double* px = (double*)jl_array_data(X);
 
             double NaN = JL_unbox_float64(safe_JL_eval_string("NaN"));
-
-            char* next_token;
-            ST_int maxlen = atoi(argv[3]) + 1;
-            char* contents = (char*)malloc(maxlen);
-            (void)SF_macro_use(argv[2], contents, maxlen);
-            char* token = strtok_r(contents, " ", &next_token);
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -231,14 +223,11 @@ STDLL stata_call(int argc, char* argv[])
 #else
             }
 #endif
-            for (ST_int i = 0; i < SF_nvars(); i++)
-                if (token != NULL) {
-                    snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i, token);
-                    (void)safe_JL_eval_string(buf);
-                    token = strtok_r(NULL, " ", &next_token);
-                }
+            for (ST_int i = 2; i < argc; i++) {
+                snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i-1, argv[i]);
+                (void)safe_JL_eval_string(buf);
+            }
             free(touse);
-            free(contents);
             return 0;
         }
 
@@ -288,8 +277,7 @@ STDLL stata_call(int argc, char* argv[])
 
     // argv[0] = "PutVarsToDFNoMissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata missings
     // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
-    // argv[2] = name of Stata macro (beginning with "_" if a local) with names for DataFrame cols
-    // argv[3] = string rendering of length of that macro
+    // argv[2], argv[3]... = names for DataFrame cols
     if (!strcmp(argv[0], "PutVarsToDFNoMissing")) {
         ST_int nobs = 0;
         char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
@@ -300,12 +288,6 @@ STDLL stata_call(int argc, char* argv[])
         snprintf(buf, BUFLEN, "X = Matrix{Float64}(undef, %i, %i); %s = DataFrame(X, :auto, copycols=false); X", nobs, SF_nvars(), argv[1]);
         jl_value_t* X = safe_JL_eval_string(buf);
         double* px = (double*)jl_array_data(X);
-
-        char* next_token;
-        ST_int maxlen = atoi(argv[3]) + 1;
-        char* contents = (char*)malloc(maxlen);
-        (void)SF_macro_use(argv[2], contents, maxlen);
-        char* token = strtok_r(contents, " ", &next_token);
 
 #if SYSTEM==APPLEMAC
         dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -328,14 +310,11 @@ STDLL stata_call(int argc, char* argv[])
 #else
         }
 #endif
-        for (ST_int i = 1; i <= SF_nvars(); i++)
-            if (token != NULL) {
-                snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i, token);
-                (void)safe_JL_eval_string(buf);
-                token = strtok_r(NULL, " ", &next_token);
-            }
+        for (ST_int i = 2; i < argc; i++) {
+            snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i - 1, argv[i]);
+            (void)safe_JL_eval_string(buf);
+        }
         free(touse);
-        free(contents);
         return 0;
     }
 
@@ -358,18 +337,18 @@ STDLL stata_call(int argc, char* argv[])
 #pragma omp parallel
         {
 #pragma omp for
-        for (ST_int i = 0; i < SF_nvars(); i++)
+            for (ST_int i = 0; i < SF_nvars(); i++)
 #endif
-        {
-            char *_tousej = touse;
-            ST_int ip1 = i + 1;
-            double* pxj = px + i * nobs;
-            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                if (*_tousej++)
-                    SF_vdata(ip1, j, pxj++);
-        }
+            {
+                char* _tousej = touse;
+                ST_int ip1 = i + 1;
+                double* pxj = px + i * nobs;
+                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                    if (*_tousej++)
+                        SF_vdata(ip1, j, pxj++);
+            }
 #if SYSTEM==APPLEMAC
-        );
+            );
 #else
         }
 #endif
@@ -378,9 +357,7 @@ STDLL stata_call(int argc, char* argv[])
 
     // argv[0] = "GetVarsFromDF": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
     // argv[1] = DataFrame name
-    // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
-    // argv[3] = string rendering of length of that macro
-    // argv[4] = string rendering of number of entries in macro
+    // argv[2], argv[3]... = names for DataFrame cols
     if (!strcmp(argv[0], "GetVarsFromDF")) {
         snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
         size_t nobs = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
@@ -395,22 +372,15 @@ STDLL stata_call(int argc, char* argv[])
             throw("Too few rows to receive data.");
         }
 
-        size_t ncols = atoi(argv[4]);
+        size_t ncols = argc - 2;
         double missval = SV_missval;
-
-        char* next_token;
-        ST_int maxlen = atoi(argv[3]) + 1;
-        char* contents = (char*)malloc(maxlen);
-        (void)SF_macro_use(argv[2], contents, maxlen);
-        char* token = strtok_r(contents, " ", &next_token);
 
         double** maxpx = (double**)malloc(ncols * sizeof(double*));
         for (ST_int i = 0; i < ncols; i++) {
-            snprintf(buf, BUFLEN, "x=gensym(); eval(:($x=parent((%s)[!,:%s]); eltype($x)!=Float64 && ($x = Array{Float64}($x)); $x))", argv[1], token);  // assure source vector is double
+            snprintf(buf, BUFLEN, "x=gensym(); eval(:($x=parent((%s)[!,:%s]); eltype($x)!=Float64 && ($x = Array{Float64}($x)); $x))", argv[1], argv[2+i]);  // assure source vector is double
             maxpx[i] = (double*)jl_array_data(safe_JL_eval_string(buf));
-            snprintf(buf, BUFLEN, "parentindices((%s)[!,:%s]) |> (x -> isone(length(x)) ? 1 : x[2])", argv[1], token);
+            snprintf(buf, BUFLEN, "parentindices((%s)[!,:%s]) |> (x -> isone(length(x)) ? 1 : x[2])", argv[1], argv[2+i]);
             maxpx[i] += nobs * JL_unbox_int64(safe_JL_eval_string(buf));
-            token = strtok_r(NULL, " ", &next_token);
         }
 
 #if SYSTEM==APPLEMAC
@@ -427,85 +397,112 @@ STDLL stata_call(int argc, char* argv[])
                 ST_int ip1 = i + 1;
                 for (ST_int j = SF_in1(); j <= SF_in2() && pxj < maxpx[i]; j++) {
                     if (*_tousej++) {
-                        SF_vstore(ip1, j, *pxj != *pxj ? missval : *pxj);  // *px != *px detects NaN
+                        SF_vstore(ip1, j, *pxj != *pxj ? missval : *pxj);  // *pxj != *pxj detects NaN
                         pxj++;
                     }
                 }
             }
 #if SYSTEM==APPLEMAC
-                );
+            );
 #else
-            }
+        }
 #endif
+        free(touse);
+        free(maxpx);
+        return 0;
+    }
+
+    // argv[0] = "GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
+    // argv[1] = DataFrame name
+    // argv[2], argv[3]... = names for DataFrame cols
+    if (!strcmp(argv[0], "GetVarsFromDFNoMissing")) {
+        snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
+        size_t nobs = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
+
+        char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
+        char* tousej = touse;
+        size_t ST_rows = 0;
+        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+            ST_rows += (*tousej++ = (char)SF_ifobs(j));
+        if (nobs > ST_rows) {
             free(touse);
-            free(contents);
-            free(maxpx);
-            return 0;
+            throw("Too few rows to receive data.");
         }
 
-        // argv[0] = "GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
-        // argv[1] = DataFrame name
-        // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
-        // argv[3] = string rendering of length of that macro
-        // argv[4] = string rendering of number of entries in macro
-        if (!strcmp(argv[0], "GetVarsFromDFNoMissing")) {
-            snprintf(buf, BUFLEN, "size(%s,1)", argv[1]);
-            size_t nobs = (size_t)JL_unbox_int64(safe_JL_eval_string(buf));
+        size_t ncols = argc - 2;
+        double missval = SV_missval;
 
-            char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
-            char* tousej = touse;
-            size_t ST_rows = 0;
-            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                ST_rows += (*tousej++ = (char)SF_ifobs(j));
-            if (nobs > ST_rows) {
-                free(touse);
-                throw("Too few rows to receive data.");
-            }
-
-            size_t ncols = atoi(argv[4]);
-
-            char* next_token;
-            ST_int maxlen = atoi(argv[3]) + 1;
-            char* contents = (char*)malloc(maxlen);
-            (void)SF_macro_use(argv[2], contents, maxlen);
-            char* token = strtok_r(contents, " ", &next_token);
-
-            double** maxpx = (double**)malloc(ncols * sizeof(double*));
-            for (ST_int i = 0; i < ncols; i++) {
-                snprintf(buf, BUFLEN, "x=gensym(); eval(:($x=parent((%s)[!,:%s]); eltype($x)!=Float64 && ($x = Array{Float64}($x)); $x))", argv[1], token);  // assure source vector is double
-                maxpx[i] = (double*)jl_array_data(safe_JL_eval_string(buf));
-                snprintf(buf, BUFLEN, "parentindices((%s)[!,:%s]) |> (x -> isone(length(x)) ? 1 : x[2])", argv[1], token);
-                maxpx[i] += nobs * JL_unbox_int64(safe_JL_eval_string(buf));
-                token = strtok_r(NULL, " ", &next_token);
-            }
+        double** maxpx = (double**)malloc(ncols * sizeof(double*));
+        for (ST_int i = 0; i < ncols; i++) {
+            snprintf(buf, BUFLEN, "x=gensym(); eval(:($x=parent((%s)[!,:%s]); eltype($x)!=Float64 && ($x = Array{Float64}($x)); $x))", argv[1], argv[2 + i]);  // assure source vector is double
+            maxpx[i] = (double*)jl_array_data(safe_JL_eval_string(buf));
+            snprintf(buf, BUFLEN, "parentindices((%s)[!,:%s]) |> (x -> isone(length(x)) ? 1 : x[2])", argv[1], argv[2 + i]);
+            maxpx[i] += nobs * JL_unbox_int64(safe_JL_eval_string(buf));
+        }
 
 #if SYSTEM==APPLEMAC
-            dispatch_apply(ncols, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
+        dispatch_apply(ncols, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
 #else
 #pragma omp parallel
-            {
+        {
 #pragma omp for
-                for (ST_int i = 0; i < ncols; i++)
+            for (ST_int i = 0; i < ncols; i++)
 #endif
-                {
-                    double* pxj = maxpx[i] - nobs;
-                    char* _tousej = touse;
-                    ST_int ip1 = i + 1;
-                    for (ST_int j = SF_in1(); j <= SF_in2() && pxj < maxpx[i]; j++) {
-                        if (*_tousej++)
-                            SF_vstore(ip1, j, *pxj++);
-                    }
-                }
-#if SYSTEM==APPLEMAC
-                );
-#else
+            {
+                double* pxj = maxpx[i] - nobs;
+                char* _tousej = touse;
+                ST_int ip1 = i + 1;
+                for (ST_int j = SF_in1(); j <= SF_in2() && pxj < maxpx[i]; j++)
+                    if (*_tousej++)
+                        SF_vstore(ip1, j, *pxj++);  // *px != *px detects NaN
             }
-#endif
-            free(touse);
-            free(contents);
-            free(maxpx);
-            return 0;
+#if SYSTEM==APPLEMAC
+            );
+#else
         }
+#endif
+        free(touse);
+        free(maxpx);
+        return 0;
+    }
+
+    // argv[0] = "PutVarsToMatNoMissing": put vars in a new Julia Matrix{Float64}, with no special handling of Stata missings
+    // argv[1] = Julia matrix name; any existing matrix of that name will be overwritten
+    if (!strcmp(argv[0], "PutVarsToMatNoMissing")) {
+        ST_int nobs = 0;
+        char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
+        char* tousej = touse;
+        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+            nobs += (*tousej++ = (char)SF_ifobs(j));
+
+        snprintf(buf, BUFLEN, "%s = Matrix{Float64}(undef, %i, %i)", argv[1], nobs, SF_nvars());
+        jl_value_t* X = safe_JL_eval_string(buf);
+        double* px = (double*)jl_array_data(X);
+
+#if SYSTEM==APPLEMAC
+        dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
+#else
+#pragma omp parallel
+        {
+#pragma omp for
+            for (ST_int i = 0; i < SF_nvars(); i++)
+#endif
+            {
+                char* _tousej = touse;
+                ST_int ip1 = i + 1;
+                double* pxj = px + i * nobs;
+                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                    if (*_tousej++)
+                        SF_vdata(ip1, j, pxj++);
+            }
+#if SYSTEM==APPLEMAC
+            );
+#else
+        }
+#endif
+        return 0;
+    }
+
 
         // argv[0] = "GetVarsFromMat": copy from Julia matrix into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
         // argv[1] = matrix name
