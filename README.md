@@ -59,5 +59,5 @@ headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
 ## Possible extensions
 1. Support string variables.
 2. Support Julia categorical variables.
-3. Gracefully handle transfer of non-double types.
+3. Gracefully handle transfer of non-double numeric types.
 4. Provide fuller Julia REPL experience.
