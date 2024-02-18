@@ -1,4 +1,4 @@
-*! jl 0.9.0 26 January 2024
+*! jl 0.9.1 15 February 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -95,7 +95,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 0.9.0
+    return local version 0.9.1
     exit
   }
 
@@ -137,6 +137,26 @@ program define jl, rclass
         }
       }
     }
+    else if `"`cmd'"'=="use" {
+      syntax namelist [using/], [clear]
+      if c(changed) {
+        if "`clear'"=="" error 4
+        clear
+      }
+      if `"`using'"'=="" {
+        _assert `:word count `namelist''==1, msg("Just specify one source DataFrame.") rc(198) 
+        local source `namelist'
+        qui jl: join(names(`source'), " ")
+        local cols `r(ans)'
+      }
+      else {
+        local source `using'
+        local cols `namelist'
+      }
+      qui jl: size(`source',1)
+      set obs `r(ans)'
+      jl GetVarsFromDF `cols', source(`source') 
+    }
     else if inlist(`"`cmd'"', "PutVarsToDF", "PutVarsToDFNoMissing") {
       syntax [varlist] [if] [in], [DESTination(string) COLs(string)]
       if `"`destination'"'=="" local destination df
@@ -146,7 +166,7 @@ program define jl, rclass
         confirm names `cols'
         _assert `:word count `cols''>=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination columns specified.") rc(198) 
       }
-      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' `cols'
+      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' _cols `:strlen local cols'
       if "`cmd'"=="PutVarsToDF" {
         jl, qui: allowmissing!(`destination')
         jl, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
@@ -178,8 +198,8 @@ program define jl, rclass
       foreach var in `namelist' {
         cap gen double `var' = .
       }
-      if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'), missing=>NaN)
-      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' `cols'
+      if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'[:,split("`cols'")]), missing=>NaN)
+      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `:word count `cols''
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]
@@ -258,3 +278,4 @@ end
 * 0.8.0 Added SetEnv command
 * 0.8.1 Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
 * 0.9.0 Added interruptible option and multithreaded variable copying
+* 0.9.1 Reverted to complex syntax for C++ variable copying routines, to avoid limit on # of vars

@@ -62,13 +62,13 @@ drawnorm y
 jl PutVarsToDF x y
 sum
 replace x = .
-cap noi jl GetVarsFromDFNoMissing x y
-jl GetVarsFromDFNoMissing x y, replace
+cap noi jl GetVarsFromDFNoMissing x y  // should error
+cap noi jl GetVarsFromDFNoMissing x y, replace  // should error
 sum
 
-jl: df[1,1] = NaN
-jl GetVarsFromDFNoMissing x, replace
-di x
+jl: df[1,2] = NaN
+jl GetVarsFromDFNoMissing y, replace
+di y
 
 jl: z = Float32[1.; 2.; 3.]
 jl GetVarsFromMat z, source(z)
