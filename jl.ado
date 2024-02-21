@@ -85,6 +85,14 @@ program define assure_julia_started
       global julia_task `"var"`r(ans)'""'
       qui jl: String(gensym())
       global julia_time `"var"`r(ans)'""'
+
+      qui jl: String(gensym())
+      global julia_J2Stypedict `"var"`r(ans)'""'
+      qui jl: String(gensym())
+      global julia_S2Jtypedict `"var"`r(ans)'""'
+
+      jl, qui: const $julia_J2Stypedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double");
+      jl, qui: const $julia_S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
     }
     if _rc global julia_loaded
   }
@@ -161,12 +169,18 @@ program define jl, rclass
       syntax [varlist] [if] [in], [DESTination(string) COLs(string)]
       if `"`destination'"'=="" local destination df
         else confirm names `destination'
-      if `"`cols'"'=="" local cols `varlist'
+      if `"`cols'"'=="" unab cols: `varlist'
       else {
         confirm names `cols'
         _assert `:word count `cols''>=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination columns specified.") rc(198) 
       }
-      plugin call _julia `varlist' `if' `in', PutVarsToDFNoMissing `"`destination'"' _cols `:strlen local cols'
+      foreach col in `cols' {
+        local type: type `col'
+        if substr("`type'",1,3)=="str" & "`type'"!="str1" local type str
+        local types `types' `type'
+      }
+      local cols `destination' = DataFrame([n=>Vector{$julia_S2Jtypedict[t]}(undef,%i) for (n,t) in zip(split("`cols'"), split("`types'"))])
+      plugin call _julia `varlist' `if' `in', PutVarsToDF `"`destination'"' _cols `:strlen local cols'
       if "`cmd'"=="PutVarsToDF" {
         jl, qui: allowmissing!(`destination')
         jl, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
@@ -194,6 +208,8 @@ program define jl, rclass
         confirm names `cols'
         _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
       }
+// qui jl: typedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double")
+// qui jl: join(eachcol(`source'[!,split("`cols'")]) .|> eltype .|> nonmissingtype .|> (x->typedict[x]), " ")
       if "`replace'"=="" confirm new var `namelist'
       foreach var in `namelist' {
         cap gen double `var' = .
@@ -246,7 +262,7 @@ program define jl, rclass
   return local ans: copy local ans
 end
 
-program _julia, plugin using(jl.plugin)
+program _julia, plugin using(D:\OneDrive\Documents\Macros\julia.ado\jl.pluginWIN64.dll /*jl.plugin*/)
 
 * properly print a string with newlines
 program define display_multiline

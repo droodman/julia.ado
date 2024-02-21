@@ -56,8 +56,10 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
     void (*jl_init)(void);
     void (*jl_atexit_hook)(int);
     double (*jl_unbox_float64)(jl_value_t*);
-    int64_t(*jl_unbox_int64)(jl_value_t*);
+    int64_t (*jl_unbox_int64)(jl_value_t*);
+    uint8_t *(*jl_unbox_uint8pointer)(jl_value_t*);
     jl_value_t* (*jl_exception_occurred)(void);
+    jl_value_t* (*jl_call0)(jl_function_t*);
     jl_value_t* (*jl_call2)(jl_function_t*, jl_value_t*, jl_value_t*);
 } julia_fptrs;
 
@@ -66,7 +68,9 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_atexit_hook        julia_fptrs.jl_atexit_hook
 #define JL_unbox_float64      julia_fptrs.jl_unbox_float64
 #define JL_unbox_int64        julia_fptrs.jl_unbox_int64
+#define JL_unbox_uint8pointer julia_fptrs.jl_unbox_uint8pointer
 #define JL_exception_occurred julia_fptrs.jl_exception_occurred
+#define JL_call0              julia_fptrs.jl_call0
 #define JL_call2              julia_fptrs.jl_call2
 
 #if SYSTEM==STWIN32
@@ -103,8 +107,10 @@ int load_julia(const char* fulllibpath, const char* libdir) {
     JL_atexit_hook = (void (*)(int))GetProcAddress(hDLL, "jl_atexit_hook");
     JL_unbox_float64 = (double (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_float64");
     JL_unbox_int64 = (int64_t(*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_int64");
+    JL_unbox_uint8pointer = (uint8_t * (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_uint8pointer");
     JL_exception_occurred = (jl_value_t * (*) (void))GetProcAddress(hDLL, "jl_exception_occurred");
-    JL_call2 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call2");
+    JL_call0 = (jl_value_t * (*)(jl_function_t*))GetProcAddress(hDLL, "jl_call2");
+    JL_call2 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call0");
 
     return JL_eval_string == NULL || JL_init == NULL || JL_atexit_hook == NULL || JL_unbox_float64 == NULL || JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL;
 }
@@ -146,6 +152,7 @@ STDLL stata_call(int argc, char* argv[])
             if (load_julia(argv[1], argv[2]))
                 return 998;
             JL_init();
+// *** use gensym() to name the below
             JL_eval_string("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
             return 0;
         }
@@ -237,29 +244,25 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "PutVarsToDF","PutVarsToDFNoMissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata missings
+        // argv[0] = "PutVarsToDF": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata missings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
-        // argv[2] = name of Stata macro (beginning with "_" if a local) with names for DataFrame cols
+        // argv[2] = name of Stata macro (beginning with "_" if a local) with DataFrame creation command template with %i for nobs
         // argv[3] = string rendering of length of that macro
-        NoMissing = !strcmp(argv[0], "PutVarsToDFNoMissing");
-        if (NoMissing || !strcmp(argv[0], "PutVarsToDF")) {
+        if (!strcmp(argv[0], "PutVarsToDF")) {
             ST_int nobs = 0;
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
             char* tousej = touse;
             for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                 nobs += (*tousej++ = (char)SF_ifobs(j));
 
-            snprintf(buf, BUFLEN, "X = Matrix{Float64}(undef, %i, %i); %s = DataFrame(X, :auto, copycols=false); X", nobs, SF_nvars(), argv[1]);
-            jl_value_t* X = try_JL_eval_string(buf);
-            double* px = (double*)jl_array_data(X);
-
-            double NaN = JL_unbox_float64(try_JL_eval_string("NaN"));
-
-            char* next_token;
             ST_int maxlen = atoi(argv[3]) + 1;
-            char* contents = (char*)malloc(maxlen);
-            (void)SF_macro_use(argv[2], contents, maxlen);
-            char* token = strtok_r(contents, " ", &next_token);
+            char* dfcmd = (char*)malloc(maxlen);
+            SF_macro_use(argv[2], dfcmd, maxlen);
+            char* dfcmd2 = (char*)malloc(maxlen + 20);
+            snprintf(dfcmd2, maxlen + 20, dfcmd, nobs);
+            try_JL_eval_string(dfcmd2);  // construct and allocate DataFrame
+
+            size_t _buflen = strlen(argv[1]) + 25;
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -271,35 +274,25 @@ STDLL stata_call(int argc, char* argv[])
 #endif
                 {
                     char* _tousej = touse;
-                    double* pxj = px + i * nobs;
                     ST_int ip1 = i + 1;
-                    if (NoMissing) {
-                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                            if (*_tousej++)
-                                SF_vdata(ip1, j, pxj++);
-                    }
-                    else
-                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                            if (*_tousej++) {
-                                SF_vdata(ip1, j, pxj);
-                                if (SF_is_missing((ST_double)*pxj))
-                                    *pxj = NaN;
-                                pxj++;
-                            }
+                    char* _buf = (char*)malloc(_buflen);
+
+                    snprintf(_buf, BUFLEN, "%s[!,%i]", argv[1], ip1);
+                    double* px = (double*)jl_array_data(try_JL_eval_string(_buf));
+                    free(_buf);
+
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*_tousej++)
+                            SF_vdata(ip1, j, px++);
                 }
 #if SYSTEM==APPLEMAC
                 );
 #else
             }
 #endif
-            for (ST_int i = 1; i <= SF_nvars(); i++)
-                if (token != NULL) {
-                    snprintf(buf, BUFLEN, "rename!(%s, :x%i => :%s)", argv[1], i, token);
-                    (void)try_JL_eval_string(buf);
-                    token = strtok_r(NULL, " ", &next_token);
-                }
             free(touse);
-            free(contents);
+            free(dfcmd);
+            free(dfcmd2);
             return 0;
         }
             // argv[0] = "GetVarsFromDF","GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
@@ -325,20 +318,20 @@ STDLL stata_call(int argc, char* argv[])
                 size_t ncols = atoi(argv[4]);
                 double missval = SV_missval;
 
-                char* next_token;
+                char* next_colname;
                 ST_int maxlen = atoi(argv[3]) + 1;
-                char* contents = (char*)malloc(maxlen);
-                (void)SF_macro_use(argv[2], contents, maxlen);
-                char* token = strtok_r(contents, " ", &next_token);
+                char* colnames = (char*)malloc(maxlen);
+                (void)SF_macro_use(argv[2], colnames, maxlen);
+                char* colname = strtok_r(colnames, " ", &next_colname);
 
                 double** maxpx = (double**)malloc(ncols * sizeof(double*));
                 try_JL_eval_string("x=gensym()");
                 for (ST_int i = 0; i < ncols; i++) {
-                    snprintf(buf, BUFLEN, "eval(:($x=parent((%s)[!,:%s]); eltype($x)!=Float64 && ($x = Array{Float64}($x)); $x))", argv[1], token);  // assure source vector is double
+                    snprintf(buf, BUFLEN, "eval(:($x=parent((%s)[!,:%s]); eltype($x)!=Float64 && ($x = Array{Float64}($x)); $x))", argv[1], colname);  // assure source vector is double
                     maxpx[i] = (double*)jl_array_data(try_JL_eval_string(buf));
-                    snprintf(buf, BUFLEN, "parentindices((%s)[!,:%s]) |> (x -> isone(length(x)) ? 1 : x[2])", argv[1], token);
+                    snprintf(buf, BUFLEN, "parentindices((%s)[!,:%s]) |> (x -> isone(length(x)) ? 1 : x[2])", argv[1], colname);
                     maxpx[i] += nobs * JL_unbox_int64(try_JL_eval_string(buf));
-                    token = strtok_r(NULL, " ", &next_token);
+                    colname = strtok_r(NULL, " ", &next_colname);
                 }
 
 #if SYSTEM==APPLEMAC
@@ -372,7 +365,7 @@ STDLL stata_call(int argc, char* argv[])
                 }
 #endif
                 free(touse);
-                free(contents);
+                free(colnames);
                 free(maxpx);
                 return 0;
             }
