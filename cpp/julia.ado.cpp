@@ -137,6 +137,14 @@ jl_value_t* try_JL_eval_string(const char* cmd) {
 #define BUFLEN 4096
 char buf[BUFLEN];
 
+template <typename T>
+void copytodf(char* touse, ST_int i, T* px) {
+    char* _tousej = touse;
+    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+        if (*_tousej++)
+            SF_vdata(i, j, px++);
+}
+
 // Stata entry point
 STDLL stata_call(int argc, char* argv[])
 {
@@ -147,7 +155,7 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "start": initiate Julia instance
         // argv[1] = full path to libjulia
-        // argv[2] = directory part of argv[1], used in Windows only
+        // argv[2] = directory part of argv[1], Windows only
         if (!strcmp(argv[0], "start")) {
             if (load_julia(argv[1], argv[2]))
                 return 998;
@@ -263,6 +271,13 @@ STDLL stata_call(int argc, char* argv[])
             try_JL_eval_string(dfcmd2);  // construct and allocate DataFrame
 
             size_t _buflen = strlen(argv[1]) + 25;
+            char* _buf = (char*)malloc(_buflen);
+            void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
+            for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to destination columns without multithreading because jl_*() routines not thread safe
+                snprintf(_buf, _buflen, "%s[!,%i]", argv[1], i+1);
+                pxs[i] = (void*)jl_array_data(try_JL_eval_string(_buf));
+            }
+            free(_buf);
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -272,25 +287,14 @@ STDLL stata_call(int argc, char* argv[])
 #pragma omp for
                 for (ST_int i = 0; i < SF_nvars(); i++)
 #endif
-                {
-                    char* _tousej = touse;
-                    ST_int ip1 = i + 1;
-                    char* _buf = (char*)malloc(_buflen);
-
-                    snprintf(_buf, BUFLEN, "%s[!,%i]", argv[1], ip1);
-                    double* px = (double*)jl_array_data(try_JL_eval_string(_buf));
-                    free(_buf);
-
-                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                        if (*_tousej++)
-                            SF_vdata(ip1, j, px++);
-                }
+                    copytodf(touse, i+1, (double *)(pxs[i]));
 #if SYSTEM==APPLEMAC
                 );
 #else
             }
 #endif
             free(touse);
+            free(pxs);
             free(dfcmd);
             free(dfcmd2);
             return 0;
