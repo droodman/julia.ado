@@ -176,11 +176,11 @@ program define jl, rclass
       }
       foreach col in `cols' {
         local type: type `col'
-        if substr("`type'",1,3)=="str" & "`type'"!="str1" local type str
-        local types `types' `type'
+        local types `types' double  // `=cond(substr("`type'",1,3)=="str" & "`type'"!="strL", "str", "double")'
       }
-      local cols `destination' = DataFrame([n=>Vector{$julia_S2Jtypedict[t]}(undef,%i) for (n,t) in zip(split("`cols'"), split("`types'"))])
+      local cols `destination' = DataFrame([n=>Vector{Float64}(undef,%i) for (n,t) in zip(split("`cols'"), split("`types'"))])
       plugin call _julia `varlist' `if' `in', PutVarsToDF `"`destination'"' _cols `:strlen local cols'
+
       if "`cmd'"=="PutVarsToDF" {
         jl, qui: allowmissing!(`destination')
         jl, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
