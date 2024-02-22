@@ -270,14 +270,19 @@ STDLL stata_call(int argc, char* argv[])
             snprintf(dfcmd2, maxlen + 20, dfcmd, nobs);
             try_JL_eval_string(dfcmd2);  // construct and allocate DataFrame
 
-            size_t _buflen = strlen(argv[1]) + 25;
+            size_t _buflen = strlen(argv[1]) + 40;
             char* _buf = (char*)malloc(_buflen);
             void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
-            for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to destination columns without multithreading because jl_*() routines not thread safe
-                snprintf(_buf, _buflen, "%s[!,%i]", argv[1], i+1);
+            int64_t* sizes = (long long*)malloc(SF_nvars());
+            for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because jl_*() routines not thread safe
+                snprintf(_buf, _buflen, "%s[!,%i]", argv[1], i + 1);
                 pxs[i] = (void*)jl_array_data(try_JL_eval_string(_buf));
+                snprintf(_buf, _buflen, "try sizeof(eltype(%s[!,%i])) catch _ 0 end", argv[1], i + 1);
+                sizes[i] = jl_unbox_int64(try_JL_eval_string(_buf));
             }
             free(_buf);
+            free(pxs);
+            free(sizes);
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -287,7 +292,20 @@ STDLL stata_call(int argc, char* argv[])
 #pragma omp for
                 for (ST_int i = 0; i < SF_nvars(); i++)
 #endif
-                    copytodf(touse, i+1, (double *)(pxs[i]));
+                    switch (sizes[i]) {
+                    case 1:
+                        copytodf(touse, i + 1, (int8_t*)(pxs[i]));
+                        break;
+                    case 2:
+                        copytodf(touse, i + 1, (int16_t*)(pxs[i]));
+                        break;
+                    case 4:
+                        copytodf(touse, i + 1, (int32_t*)(pxs[i]));
+                        break;
+                    case 8:
+                        copytodf(touse, i + 1, (int64_t*)(pxs[i]));
+                        break;
+                    }
 #if SYSTEM==APPLEMAC
                 );
 #else
