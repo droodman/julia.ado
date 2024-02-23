@@ -44,7 +44,7 @@ program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
-    cap {
+    cap noi {
       cap wheresjulia
       cap if _rc & c(os)!="Windows" wheresjulia ~/.juliaup/bin/
       cap if _rc & c(os)=="MacOSX" {
@@ -91,8 +91,9 @@ program define assure_julia_started
       qui jl: String(gensym())
       global julia_S2Jtypedict `"var"`r(ans)'""'
 
-      jl, qui: const $julia_J2Stypedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double");
-      jl, qui: const $julia_S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
+      jl, qui: const stataplugininterface.type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6)
+      jl, qui: const stataplugininterface.J2Stypedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double");
+      jl, qui: const stataplugininterface.S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
     }
     if _rc global julia_loaded
   }
@@ -166,25 +167,22 @@ program define jl, rclass
       jl GetVarsFromDF `cols', source(`source') 
     }
     else if inlist(`"`cmd'"', "PutVarsToDF", "PutVarsToDFNoMissing") {
-      syntax [varlist] [if] [in], [DESTination(string) COLs(string)]
+      syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly]
       if `"`destination'"'=="" local destination df
         else confirm names `destination'
+      local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
       if `"`cols'"'=="" unab cols: `varlist'
       else {
         confirm names `cols'
-        _assert `:word count `cols''>=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination columns specified.") rc(198) 
+        _assert `:word count `cols''!=`ncols', msg("Source and destination variable lists different lengths.") rc(198) 
       }
       foreach col in `cols' {
         local type: type `col'
-        if substr("`type'",1,3)=="str" & "`type'"!="str1" local type str
-        local types `types' `type'
+        local types `types' `=cond(substr("`type'",1,3)=="str", "str", cond("`doubleonly'"=="", "`type'", "double"))'
       }
-      local cols `destination' = DataFrame([n=>Vector{$julia_S2Jtypedict[t]}(undef,%i) for (n,t) in zip(split("`cols'"), split("`types'"))])
-      plugin call _julia `varlist' `if' `in', PutVarsToDF `"`destination'"' _cols `:strlen local cols'
-      if "`cmd'"=="PutVarsToDF" {
-        jl, qui: allowmissing!(`destination')
-        jl, qui: replace!.(x -> x >= reinterpret(Float64, 0x7fe0000000000000) ? missing : x, eachcol(`destination'))
-      }
+      if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(split("`cols'"), split("`types'"))])
+        else                local dfcmd `destination' = DataFrame(Matrix{Float64}(undef, %i, `ncols'), :auto, copycols=false); rename!(`destination', split("`cols'"))
+      plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"' _dfcmd `:strlen local dfcmd'
     }
     else if inlist(`"`cmd'"', "PutVarsToMat", "PutVarsToMatNoMissing") {
       syntax [varlist] [if] [in], DESTination(string)
