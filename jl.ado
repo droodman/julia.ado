@@ -91,7 +91,7 @@ program define assure_julia_started
       qui jl: String(gensym())
       global julia_S2Jtypedict `"var"`r(ans)'""'
 
-      jl, qui: const stataplugininterface.type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6)
+      jl, qui: const stataplugininterface.type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6, String=>7)
       jl, qui: const stataplugininterface.J2Stypedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double");
       jl, qui: const stataplugininterface.S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
     }

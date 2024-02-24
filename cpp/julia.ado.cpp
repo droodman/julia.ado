@@ -64,7 +64,11 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
     int64_t (*jl_unbox_int64)(jl_value_t*);
     jl_value_t* (*jl_exception_occurred)(void);
     jl_value_t* (*jl_call2)(jl_function_t*, jl_value_t*, jl_value_t*);
+    jl_value_t* (*jl_call3)(jl_function_t*, jl_value_t*, jl_value_t*, jl_value_t*);
     const char* (*jl_string_ptr)(jl_value_t*);
+    int (*jl_gc_enable)(int);
+    jl_value_t* (*jl_box_int64)(int64_t);
+    jl_value_t* (*jl_pchar_to_string)(const char*, size_t);
 } julia_fptrs;
 
 #define JL_eval_string        julia_fptrs.jl_eval_string
@@ -76,6 +80,11 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_string_ptr         julia_fptrs.jl_string_ptr
 #define JL_exception_occurred julia_fptrs.jl_exception_occurred
 #define JL_call2              julia_fptrs.jl_call2
+#define JL_call3              julia_fptrs.jl_call3
+#define JL_gc_enable          julia_fptrs.jl_gc_enable
+#define JL_box_int64          julia_fptrs.jl_box_int64
+#define JL_pchar_to_string    julia_fptrs.jl_pchar_to_string
+
 
 #if SYSTEM==STWIN32
 #include "windows.h"
@@ -110,12 +119,17 @@ int load_julia(const char* fulllibpath, const char* libdir) {
     JL_string_ptr = (const char * (*)(jl_value_t*))GetProcAddress(hDLL, "jl_string_ptr");
     JL_exception_occurred = (jl_value_t * (*) (void))GetProcAddress(hDLL, "jl_exception_occurred");
     JL_call2 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call2");
+    JL_call3 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call3");
+    JL_gc_enable = (int (*)(int))GetProcAddress(hDLL, "jl_gc_enable");
+    JL_box_int64 = (jl_value_t * (*)(int64_t))GetProcAddress(hDLL, "jl_box_int64");
+    JL_pchar_to_string = (jl_value_t * (*)(const char*, size_t))GetProcAddress(hDLL, "jl_pchar_to_string");
 
-    return JL_eval_string == NULL || JL_init == NULL || JL_atexit_hook == NULL || JL_unbox_float32 == NULL || JL_unbox_float64 == NULL || JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL /* || JL_string_ptr == NULL*/;
+    return JL_eval_string == NULL || JL_init == NULL || JL_gc_enable == NULL || JL_atexit_hook == NULL || JL_unbox_float32 == NULL || JL_unbox_float64 == NULL || JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL || JL_call3 == NULL || JL_string_ptr == NULL || JL_box_int64 == NULL || JL_pchar_to_string == NULL;
 }
 
 
 jl_value_t* JL_eval(string cmd) {
+    JL_gc_enable(0);
     jl_value_t* ret = JL_eval_string(cmd.c_str());
     if (jl_value_t* ex = JL_exception_occurred()) {
         JL_call2(
@@ -125,6 +139,8 @@ jl_value_t* JL_eval(string cmd) {
         );
         throw jl_string_data(JL_eval_string("String(take!(_Stata_io))"));
     }
+    JL_gc_enable(1);
+
     if (ret)
         return ret;
     throw "Command line failed:\n" + cmd + "\n";
@@ -155,6 +171,7 @@ int32_t int32max;
 int64_t int64max;
 float NaN32;
 double NaN64;
+jl_function_t* setindex;
 
 // Stata entry point
 STDLL stata_call(int argc, char* argv[])
@@ -180,6 +197,7 @@ STDLL stata_call(int argc, char* argv[])
             int64max = numeric_limits<int64_t>::max();
             NaN32 = JL_unbox_float32(JL_eval("NaN32"));
             NaN64 = JL_unbox_float64(JL_eval("NaN64"));
+            setindex = (jl_function_t *) JL_eval("Base.setindex!");
 
             return 0;
         }
@@ -217,7 +235,7 @@ STDLL stata_call(int argc, char* argv[])
             for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                 nobs += (*tousej++ = (char)SF_ifobs(j));
 
-            jl_value_t* X = JL_eval(string(argv[1]) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ")");
+            jl_value_t* X = JL_eval(string(argv[1]) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ")");  // no more Julia calls till we're done with X, so GC-safe
             double* px = (double*)jl_array_data(X);
 
 #if SYSTEM==APPLEMAC
@@ -256,7 +274,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "PutVarsToDF": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata missings
+        // argv[0] = "PutVarsToDF","PutVarsToDFNoMissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata missings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
         // argv[2] = name of Stata macro (beginning with "_" if a local) with DataFrame creation command template with %i for nobs
         // argv[3] = string rendering of length of that macro
@@ -282,8 +300,10 @@ STDLL stata_call(int argc, char* argv[])
             void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
             int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
             for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because jl_*() routines not thread safe
-                pxs[i] = (void*)jl_array_data(JL_eval(dfname + "[!," + to_string(i + 1) + "]"));
                 types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[eltype(" + dfname + "[!," + to_string(i + 1) + "])]"));
+                pxs[i] = (void*)JL_eval(dfname + "[!," + to_string(i + 1) + "]");
+                if (types[i]!=7)
+                    pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
             }
 
 #if SYSTEM==APPLEMAC
@@ -305,14 +325,38 @@ STDLL stata_call(int argc, char* argv[])
                         copytodf(touse, i + 1, (int64_t*)(pxs[i]), int64max, NoMissing);
                     else if (types[i] == 5)
                         copytodf(touse, i + 1, (float*)(pxs[i]), NaN32, NoMissing);
-                    else if (types[i] == 6) {
+                    else {
                         char* _tousej = touse;
-                        double* px = (double*)(pxs[i]);
-                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                            if (*_tousej++)
-                                SF_vdata(i, j, px++);
-                    } else
-                        0;  // XXX handle strings
+                        ST_int ip1 = i + 1;
+                        if (types[i] == 6) {
+                            double* px = (double*)(pxs[i]);
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++)
+                                    SF_vdata(ip1, j, px++);
+                        }
+                        else {
+                            int64_t k = 1;
+                            jl_value_t* dest = JL_eval(dfname + "[!," + to_string(i + 1) + "]");
+                            if (SF_var_is_strl(ip1))
+                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                    if (*_tousej++) {
+                                        ST_int len;
+                                        len = SF_sdatalen(ip1, j);
+                                        char* val = (char*)malloc(len * sizeof(char));
+                                        SF_strldata(ip1, j, val, len);
+                                        JL_call3(setindex, dest, JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                                        // free(val);
+                                    }
+                            else {
+                                char val[2046];
+                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                    if (*_tousej++) {
+                                        SF_sdata(ip1, j, val);
+                                        JL_call3(setindex, dest, JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                                    }
+                            }
+                        }
+                    }
 #if SYSTEM==APPLEMAC
                 );
 #else
@@ -412,7 +456,7 @@ STDLL stata_call(int argc, char* argv[])
                 if (SF_nvars() < ncols)
                     ncols = SF_nvars();
 
-                jl_value_t* X = JL_eval("let x=" + string(argv[1]) + "; eltype(x) == Float64 ? x : Array{Float64}(x) end");
+                jl_value_t* X = JL_eval("let x=" + string(argv[1]) + "; eltype(x) == Float64 ? x : Array{Float64}(x) end");  // no more Julia calls till we're done with X, so GC-safe
                 double* px = (double*)jl_array_data(X);
 
 #if SYSTEM==APPLEMAC
@@ -460,7 +504,7 @@ STDLL stata_call(int argc, char* argv[])
                 char* matname = argv[1];
                 ST_int nrows = SF_row(matname);
                 ST_int ncols = SF_col(matname);
-                jl_value_t* X = JL_eval(string(argv[2]) + "= Matrix{Float64}(undef," + to_string(nrows) + "," + to_string(ncols) + ")");
+                jl_value_t* X = JL_eval(string(argv[2]) + "= Matrix{Float64}(undef," + to_string(nrows) + "," + to_string(ncols) + ")");  // no more Julia calls till we're done with X, so GC-safe
                 double* px = (double*)jl_array_data(X);
 
                 double NaN = JL_unbox_float64(JL_eval("NaN"));
@@ -475,6 +519,7 @@ STDLL stata_call(int argc, char* argv[])
             }
         }
     catch (const char* msg) {
+        JL_gc_enable(1);
         SF_error((char*)msg);
         SF_error((char*)"\n");
         return 999;

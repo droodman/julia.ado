@@ -151,6 +151,15 @@ After installing Julia, restart Stata for good measure.
 use. That can take a minute.
 
 
+{title:Installing the JuliaMono font}
+
+{pstd}The {browse "https://juliamono.netlify.app":JuliaMono} font is a free, monospaced font that works well in Stata and includes
+Unicode characters that often appear in Julia output, such as {browse "https://www.compart.com/en/unicode/U+22EE":vertical} and 
+{browse "https://www.compart.com/en/unicode/U+22F1":diagonal} ellipses. You can 
+{browse "https://github.com/cormullion/juliamono/releases":download the TTF file}, install it, and 
+{browse "https://www.stata.com/manuals/gsm17.pdf":configure Stata to use it}.
+
+
 {marker threads}{...}
 {title:Setting the number of CPU threads}
 
@@ -161,7 +170,7 @@ or to "auto" to let Julia decide. On CPUs with hyperthreading or efficiency (E) 
 the optimal number is usually not the maximum the CPU technically supports. A good guess at the optimum is the number of P cores.
 
 {pstd}
-How to set this variable also depends on the operating system:
+How to set this variable depends on the operating system:
 
 {p 4 6 0}
 * In Linux, add "export JULIA_NUM_THREADS=auto" (as an example) to the text file "~/.bashrc". Restart the terminal window.
@@ -174,7 +183,8 @@ How to set this variable also depends on the operating system:
 button on the keyboard and type "environment variables".
 
 {pstd}
-To determine how many threads are available in a {cmd:jl} session, type "{stata "jl: Threads.nthreads()"}" at the Stata prompt.
+To determine how many threads are available to a {cmd:jl} session, type "{stata "jl: Threads.nthreads()"}" at the Stata prompt.
+
 
 {title:Options}
 
