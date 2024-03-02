@@ -206,9 +206,8 @@ program define jl, rclass
         local type: word `v' of `types'
         cap gen `type' `:word `v' of `cols'' = `=cond("`type'"=="strL", `"""', ".")'
       }
-      if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'[!,split("`cols'")]), missing=>NaN)
       plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `ncols'
-      if "`compress'"=="" compress `namelist'
+      if "`compress'"=="" qui compress `namelist'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]

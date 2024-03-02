@@ -173,9 +173,9 @@ void copytodf<double>(char* touse, ST_int i, double* px, double missval, char No
 }
 
 template <typename T>
-void copyfromdf(char* touse, ST_int i, T* px, T missval, char NoMissing) {
+void copyfromdf(char* touse, ST_int i, T* px, char* pmissings, char NoMissing) {
     char* _tousej = touse;
-    if (NoMissing) {
+    if (NoMissing || !pmissings) {
         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
             if (*_tousej++)
                 SF_vstore(i, j, (double)(*px++));
@@ -183,23 +183,7 @@ void copyfromdf(char* touse, ST_int i, T* px, T missval, char NoMissing) {
     else
         for (ST_int j = SF_in1(); j <= SF_in2(); j++) {
             if (*_tousej++) {
-                SF_vstore(i, j, *px == missval? SV_missval : (double) *px);
-                px++;
-            }
-        }
-}
-template <>
-void copyfromdf<double>(char* touse, ST_int i, double* px, double missval, char NoMissing) {
-    char* _tousej = touse;
-    if (NoMissing) {
-        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-            if (*_tousej++)
-                SF_vstore(i, j, *px++);
-    }
-    else
-        for (ST_int j = SF_in1(); j <= SF_in2(); j++) {
-            if (*_tousej++) {
-                SF_vstore(i, j, *px != *px? SV_missval : *px);  // *px != *px detects NaN
+                SF_vstore(i, j, *pmissings++? SV_missval : (double) *px);
                 px++;
             }
         }
@@ -266,7 +250,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "PutVarsToMat": put vars in a new Julia Matrix{Float64}, converting Stata missings to NaN (not Julia missing)
+        // argv[0] = "PutVarsToMat": put vars in a new Julia Matrix{Float64}, converting Stata pmissings to NaN (not Julia missing)
         // argv[1] = Julia matrix name; any existing matrix of that name will be overwritten
         NoMissing = !strcmp(argv[0], "PutVarsToMatNoMissing");
         if (NoMissing || !strcmp(argv[0], "PutVarsToMat")) {
@@ -315,7 +299,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "PutVarsToDF","PutVarsToDFNoMissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata missings
+        // argv[0] = "PutVarsToDF","PutVarsToDFNoMissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
         // argv[2] = name of Stata macro (beginning with "_" if a local) with DataFrame creation command template with %i for nobs
         // argv[3] = string rendering of length of that macro
@@ -342,9 +326,11 @@ STDLL stata_call(int argc, char* argv[])
 
             void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
             int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
-            for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because jl_*() routines not thread safe
-                types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[eltype(" + dfname + "[!," + to_string(i + 1) + "])]"));
-                pxs[i] = (void*)JL_eval(dfname + "[!," + to_string(i + 1) + "]");
+            for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because something in this not thread safe
+                string colname = dfname + "[!," + to_string(i + 1) + "]";
+                string eltype = "eltype(" + colname + ")";
+                types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
+                pxs[i] = (void*)JL_eval(colname);
                 if (types[i]!=7)
                     pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
             }
@@ -405,7 +391,7 @@ STDLL stata_call(int argc, char* argv[])
             free(pxs);
             return 0;
         }
-        // argv[0] = "GetVarsFromDF","GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
+        // argv[0] = "GetVarsFromDF","GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
         // argv[1] = DataFrame name
         // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
         // argv[3] = string rendering of length of that macro
@@ -435,11 +421,23 @@ STDLL stata_call(int argc, char* argv[])
             char* colnames = (char*)malloc(maxlen);
             (void)SF_macro_use(argv[2], colnames, maxlen);
             char* colname = strtok_r(colnames, " ", &next_colname);
+
             void** pxs = (void**)malloc(ncols * sizeof(void*));
             const char** types = (const char**)malloc(sizeof(const char *) * ncols);
+            char** pmissings = (char**)malloc(sizeof(void*) * SF_nvars());
+            JL_eval("stataplugininterface.s = Set()");  // to protect levelcode() vectors of categorical vectors from GC
             for (ST_int i = 0; i < ncols; i++) {
-                types[i] =      JL_string_ptr(JL_eval(dfname + "[1,:" + colname + "] |> x->(T = x |> typeof |> nonmissingtype; T <: CategoricalValue ? x |> levelcode |> typeof : T) |> Symbol |> String"));
-                pxs[i] = (void*)jl_array_data(JL_eval(dfname + "[!,:" + colname + "] |> (x   -> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)"));
+                string colref = dfname + "." + string(colname);
+                JL_eval("stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
+                JL_eval("push!(stataplugininterface.s, stataplugininterface.x)");
+                pxs[i] = (void*)jl_array_data(JL_eval("stataplugininterface.x"));
+                types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
+
+                if (!NoMissing)
+                    pmissings[i] = JL_unbox_int64(JL_eval("eltype(" + colref + ") <: Union{<:Any, Missing}")) ?
+                                        (char*)jl_array_data(JL_eval("map(ismissing," + colref + ")")) :
+                                        NULL;
+
                 colname = strtok_r(NULL, " ", &next_colname);
             }
 
@@ -453,30 +451,32 @@ STDLL stata_call(int argc, char* argv[])
 #endif
                 {
                     if      (!strcmp(types[i], "Int8"))
-                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], (int8_t)(2 ^ 7 - 27), NoMissing);
+                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], pmissings[i], NoMissing);
                     else if (!strcmp(types[i], "Int16"))
-                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], (int16_t)(2 ^ 15 - 27), NoMissing);
+                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], pmissings[i], NoMissing);
                     else if (!strcmp(types[i], "Int32"))
-                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], (int32_t)(2 ^ 31 - 27), NoMissing);
+                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], pmissings[i], NoMissing);
                     else if (!strcmp(types[i], "Int64"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], (int64_t)(2 ^ 63 - 27), NoMissing);
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], pmissings[i], NoMissing);
                     else if (!strcmp(types[i], "Float32"))
-                        copyfromdf(touse, i + 1, (float*)pxs[i], NaN32, NoMissing);
+                        copyfromdf(touse, i + 1, (float*)pxs[i], pmissings[i], NoMissing);
                     else if (!strcmp(types[i], "Float64"))
-                        copyfromdf(touse, i + 1, (double*)pxs[i], NaN64, NoMissing);
+                        copyfromdf(touse, i + 1, (double*)pxs[i], pmissings[i], NoMissing);
                 }
 #if SYSTEM==APPLEMAC
                 );
 #else
             }
 #endif
+            JL_eval("stataplugininterface.s = nothing");
             free(touse);
             free(colnames);
             free(pxs);
+            free(pmissings);
             return 0;
         }
 
-        // argv[0] = "GetVarsFromMat": copy from Julia matrix into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
+        // argv[0] = "GetVarsFromMat": copy from Julia matrix into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
         // argv[1] = matrix name
         if (!strcmp(argv[0], "GetVarsFromMat")) {
             string dfname = string(argv[1]);
