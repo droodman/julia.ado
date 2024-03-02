@@ -197,6 +197,7 @@ int64_t int64max;
 float NaN32;
 double NaN64;
 jl_function_t* setindex;
+jl_function_t* getindex;
 
 // Stata entry point
 STDLL stata_call(int argc, char* argv[])
@@ -222,7 +223,8 @@ STDLL stata_call(int argc, char* argv[])
             int64max = numeric_limits<int64_t>::max();
             NaN32 = JL_unbox_float32(JL_eval("NaN32"));
             NaN64 = JL_unbox_float64(JL_eval("NaN64"));
-            setindex = (jl_function_t *) JL_eval("Base.setindex!");
+            setindex = (jl_function_t*)JL_eval("Base.setindex!");
+            getindex = (jl_function_t*)JL_eval("Base.getindex");
 
             return 0;
         }
@@ -360,11 +362,11 @@ STDLL stata_call(int argc, char* argv[])
                         char* _tousej = touse;
                         ST_int ip1 = i + 1;
                         int64_t k = 1;
+                        ST_int len;
 
                         if (SF_var_is_strl(ip1)) {
                             for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                                 if (*_tousej++) {
-                                    ST_int len;
                                     len = SF_sdatalen(ip1, j);
                                     char* val = (char*)malloc((len + 1) * sizeof(char));
                                     SF_strldata(ip1, j, val, len+1);
@@ -430,13 +432,15 @@ STDLL stata_call(int argc, char* argv[])
                 string colref = dfname + "." + string(colname);
                 JL_eval("stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
                 JL_eval("push!(stataplugininterface.s, stataplugininterface.x)");
-                pxs[i] = (void*)jl_array_data(JL_eval("stataplugininterface.x"));
+                pxs[i] = (void*)JL_eval("stataplugininterface.x");
                 types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
 
                 if (!NoMissing)
                     pmissings[i] = JL_unbox_int64(JL_eval("eltype(" + colref + ") <: Union{<:Any, Missing}")) ?
                                         (char*)jl_array_data(JL_eval("map(ismissing," + colref + ")")) :
                                         NULL;
+                if (strcmp(types[i], "String"))
+                    pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
 
                 colname = strtok_r(NULL, " ", &next_colname);
             }
@@ -462,6 +466,17 @@ STDLL stata_call(int argc, char* argv[])
                         copyfromdf(touse, i + 1, (float*)pxs[i], pmissings[i], NoMissing);
                     else if (!strcmp(types[i], "Float64"))
                         copyfromdf(touse, i + 1, (double*)pxs[i], pmissings[i], NoMissing);
+                    else {
+                        char* _tousej = touse;
+                        ST_int ip1 = i + 1;
+                        int64_t k = 1;
+                        char* val;
+                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                            if (*_tousej++) {
+                                val = (char *) JL_string_ptr(JL_call2(getindex, (jl_value_t*)pxs[i], JL_box_int64(k++)));
+                                SF_sstore(ip1, j, val);
+                            }
+                    }
                 }
 #if SYSTEM==APPLEMAC
                 );

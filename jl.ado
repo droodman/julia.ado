@@ -139,10 +139,8 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="use" {
       syntax namelist [using/], [clear]
-      if c(changed) {
-        if "`clear'"=="" error 4
-        clear
-      }
+      if c(changed) & "`clear'"=="" error 4
+      drop _all
       if `"`using'"'=="" {
         _assert `:word count `namelist''==1, msg("Just specify one source DataFrame.") rc(198) 
         local source `namelist'
@@ -204,7 +202,14 @@ program define jl, rclass
       local ncols: word count `cols'
       forvalues v=1/`ncols' {
         local type: word `v' of `types'
-        cap gen `type' `:word `v' of `cols'' = `=cond("`type'"=="strL", `"""', ".")'
+        local col : word `v' of `cols'
+        cap gen `type' `col' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
+        qui jl: Int(`source'.`col' isa CategoricalVector)
+        if `r(ans)' {
+          qui jl: join([string(i) * " \"" * l * "\"" for (i,l) in enumerate(levels(`source'.`col'))], " ")
+          label define `col' `=subinstr(`"`r(ans)'"', `"\""', `"""', .)', replace
+          label values `col' `col'
+        }
       }
       plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `ncols'
       if "`compress'"=="" qui compress `namelist'
