@@ -214,7 +214,7 @@ function statatype(v::AbstractVector)::String
     jltype = v |> eltype |> nonmissingtype
     jltype <: CategoricalValue && (jltype = cvindextype(jltype))
 
-    jltype <: AbstractString ? "strL" :
+    jltype <: AbstractString ? "str" * string(min(2045, mapreduce(length, max, v, init=0))) :
     jltype <: Integer ?
         typemax(jltype)<=32741 ? "int"   : "long"   :
         jltype == Float32      ? "float" : "double"
