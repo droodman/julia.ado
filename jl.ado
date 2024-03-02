@@ -80,20 +80,10 @@ program define assure_julia_started
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
 
       jl AddPkg DataFrames, minver(1.6.1)
-      jl, qui: using DataFrames
-      qui jl: String(gensym())
-      global julia_task `"var"`r(ans)'""'
-      qui jl: String(gensym())
-      global julia_time `"var"`r(ans)'""'
-
-      qui jl: String(gensym())
-      global julia_J2Stypedict `"var"`r(ans)'""'
-      qui jl: String(gensym())
-      global julia_S2Jtypedict `"var"`r(ans)'""'
+      jl AddPkg CategoricalArrays, minver(0.10.8)
+      jl, qui: using DataFrames, CategoricalArrays
 
       jl, qui: const stataplugininterface.type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6, String=>7)
-      jl, qui: const stataplugininterface.J2Stypedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double");
-      jl, qui: const stataplugininterface.S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
     }
     if _rc global julia_loaded
   }
@@ -128,6 +118,7 @@ program define jl, rclass
     if `"`cmd'"'=="SetEnv" {
       jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
       jl AddPkg DataFrames
+      jl AddPkg CategoricalArrays
     }
     else if `"`cmd'"'=="AddPkg" {
       syntax name, [MINver(string)]
@@ -180,9 +171,10 @@ program define jl, rclass
         local type: type `col'
         local types `types' `=cond(substr("`type'",1,3)=="str", "str", cond("`doubleonly'"=="", "`type'", "double"))'
       }
-      if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(split("`cols'"), split("`types'"))])
+      if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
         else                local dfcmd `destination' = DataFrame(Matrix{Float64}(undef, %i, `ncols'), :auto, copycols=false); rename!(`destination', split("`cols'"))
       plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"' _dfcmd `:strlen local dfcmd'
+      if "`cmd'"=="PutVarsToDF" jl, qui: stataplugininterface.NaN2missing(`destination')
     }
     else if inlist(`"`cmd'"', "PutVarsToMat", "PutVarsToMatNoMissing") {
       syntax [varlist] [if] [in], DESTination(string)
@@ -199,21 +191,24 @@ program define jl, rclass
       plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"'
     }
     else if inlist(`"`cmd'"', "GetVarsFromDF", "GetVarsFromDFNoMissing") {
-      syntax namelist [if] [in], [source(string) replace COLs(string asis)]
+      syntax namelist [if] [in], [source(string) replace COLs(string asis) noCOMPress]
       if `"`source'"'=="" local source df
       if `"`cols'"'=="" local cols `namelist'
-      else {
-        confirm names `cols'
-        _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
-      }
-// qui jl: typedict = Dict(Float64=>"double", Float32=>"float", Float16=>"float", Bool=>"byte", UInt8=>"int", Int8=>"int", UInt16=>"long", Int16=>"long", UInt32=>"double", Int32=>"double", UInt64=>"double", Int64=>"double")
-// qui jl: join(eachcol(`source'[!,split("`cols'")]) .|> eltype .|> nonmissingtype .|> (x->typedict[x]), " ")
+        else {
+          confirm names `cols'
+          _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
+        }
       if "`replace'"=="" confirm new var `namelist'
-      foreach var in `namelist' {
-        cap gen double `var' = .
+      qui jl: stataplugininterface.statatypes(`source', "`cols'")
+      local types `r(ans)'
+      local ncols: word count `cols'
+      forvalues v=1/`ncols' {
+        local type: word `v' of `types'
+        cap gen `type' `:word `v' of `cols'' = `=cond("`type'"=="strL", `"""', ".")'
       }
-      if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'[:,split("`cols'")]), missing=>NaN)
-      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `:word count `cols''
+      if "`cmd'"=="GetVarsFromDF" jl, qui: replace!.(eachcol(`source'[!,split("`cols'")]), missing=>NaN)
+      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `ncols'
+      if "`compress'"=="" compress `namelist'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]
@@ -242,12 +237,12 @@ program define jl, rclass
     assure_julia_started
 
     if "`interruptible'" != "" {  // Run Julia 1 sec at a time to allow Ctrl-Break, checking if task finished every .01 sec
-      plugin   call _julia `varlist', evalqui `"$julia_task = @async (`after')"'
-      plugin   call _julia, eval `"$julia_time=time()+1; for _ in 1:100 (istaskdone($julia_task) || time()>$julia_time) && break; sleep(.01) end; Int(!istaskdone($julia_task))"'
+      plugin   call _julia `varlist', evalqui `"stataplugininterface.julia_task = @async (`after')"'
+      plugin   call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
       while `ans' {
-        plugin call _julia, eval `"$julia_time=time()+1; for _ in 1:100 (istaskdone($julia_task) || time()>$julia_time) && break; sleep(.01) end; Int(!istaskdone($julia_task))"'
+        plugin call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
       }
-      if "`quietly'"=="" plugin call _julia, eval fetch($julia_task)
+      if "`quietly'"=="" plugin call _julia, eval fetch(stataplugininterface.julia_task)
     }
     else plugin call _julia `varlist', eval`=cond("`quietly'"!="","qui","")' `"`after'"'
 
