@@ -148,10 +148,12 @@ jl_value_t* JL_eval(string cmd) {
 
 
 template <typename T>
-void copytodf(char* touse, ST_int i, T* px, T missval, char NoMissing) {
+void copytodf(char* touse, ST_int i, T* px, T missval, char nomissing) {
+SF_error((char*)"152");
+return;
     char* _tousej = touse;
     double val;
-    if (NoMissing) {
+    if (nomissing) {
         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
             if (*_tousej++) {
                 SF_vdata(i, j, &val);
@@ -165,7 +167,7 @@ void copytodf(char* touse, ST_int i, T* px, T missval, char NoMissing) {
             }
 }
 template <>
-void copytodf<double>(char* touse, ST_int i, double* px, double missval, char NoMissing) {
+void copytodf<double>(char* touse, ST_int i, double* px, double missval, char nomissing) {
     char* _tousej = touse;
     for (ST_int j = SF_in1(); j <= SF_in2(); j++)
         if (*_tousej++)
@@ -173,9 +175,9 @@ void copytodf<double>(char* touse, ST_int i, double* px, double missval, char No
 }
 
 template <typename T>
-void copyfromdf(char* touse, ST_int i, T* px, char* pmissings, char NoMissing) {
+void copyfromdf(char* touse, ST_int i, T* px, char* pmissings, char nomissing) {
     char* _tousej = touse;
-    if (NoMissing || !pmissings) {
+    if (nomissing || !pmissings) {
         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
             if (*_tousej++)
                 SF_vstore(i, j, (double)(*px++));
@@ -205,7 +207,7 @@ STDLL stata_call(int argc, char* argv[])
     if (!argc) return 0;
 
     try {
-        char NoMissing;
+        char nomissing;
 
         // argv[0] = "start": initiate Julia instance
         // argv[1] = full path to libjulia
@@ -254,8 +256,8 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "PutVarsToMat": put vars in a new Julia Matrix{Float64}, converting Stata pmissings to NaN (not Julia missing)
         // argv[1] = Julia matrix name; any existing matrix of that name will be overwritten
-        NoMissing = !strcmp(argv[0], "PutVarsToMatNoMissing");
-        if (NoMissing || !strcmp(argv[0], "PutVarsToMat")) {
+        nomissing = !strcmp(argv[0], "PutVarsToMatnomissing");
+        if (nomissing || !strcmp(argv[0], "PutVarsToMat")) {
             ST_int nobs = 0;
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
             char* tousej = touse;
@@ -278,7 +280,7 @@ STDLL stata_call(int argc, char* argv[])
                     ST_int ip1 = i + 1;
                     double* pxj = px + i * nobs;
 
-                    if (NoMissing) {
+                    if (nomissing) {
                         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                             if (*_tousej++)
                                 SF_vdata(ip1, j, pxj++);
@@ -301,12 +303,12 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "PutVarsToDF","PutVarsToDFNoMissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
+        // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
-        // argv[2] = name of Stata macro (beginning with "_" if a local) with DataFrame creation command template with %i for nobs
+        // argv[2] = name of Stata macro (beginning with "_" if a local) with DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
         // argv[3] = string rendering of length of that macro
-        NoMissing = !strcmp(argv[0], "PutVarsToDFNoMissing");
-        if (NoMissing || !strcmp(argv[0], "PutVarsToDF")) {
+        nomissing = !strcmp(argv[0], "PutVarsToDFnomissing");
+        if (nomissing || !strcmp(argv[0], "PutVarsToDF")) {
             string dfname = string(argv[1]);
 
             ST_int nobs = 0;
@@ -315,91 +317,103 @@ STDLL stata_call(int argc, char* argv[])
             for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                 nobs += (*tousej++ = (char)SF_ifobs(j));
 
-            if (!nobs) return 0;
+            if (nobs) {
 
-            ST_int maxlen = atoi(argv[3]) + 1;
-            char* dfcmd = (char*)malloc(maxlen);
-            SF_macro_use(argv[2], dfcmd, maxlen);
-            char* dfcmd2 = (char*)malloc(maxlen + 20);
-            snprintf(dfcmd2, maxlen + 20, dfcmd, nobs);
-            JL_eval(dfcmd2);  // construct and allocate DataFrame
-            free(dfcmd);
-            free(dfcmd2);
+                void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
+                int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
 
-            void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
-            int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
-            for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because something in this not thread safe
-                string colname = dfname + "[!," + to_string(i + 1) + "]";
-                string eltype = "eltype(" + colname + ")";
-                types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
-                pxs[i] = (void*)JL_eval(colname);
-                if (types[i]!=7)
-                    pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
-            }
+                if (strcmp(argv[2], "")) {  // double-only mode
+                    double* _px = (double*)jl_array_data(JL_eval("Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ") |> x->(global " + dfname + "= DataFrame(x, :auto, copycols=false); x)"));
+                    for (ST_int i = 0; i < SF_nvars(); i++) {
+                        pxs[i] = _px;
+                        _px += nobs;
+                        types[i] = 6;
+                    }
+                } else {
+                    ST_int maxlen = atoi(argv[3]) + 1;
+                    char* dfcmd = (char*)malloc(maxlen);
+                    SF_macro_use(argv[2], dfcmd, maxlen);
+                    char* dfcmd2 = (char*)malloc(maxlen + 20);
+                    snprintf(dfcmd2, maxlen + 20, dfcmd, nobs);
+                    JL_eval(dfcmd2);  // construct and allocate DataFrame
+                    free(dfcmd);
+                    free(dfcmd2);
+
+                    for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because something in this not thread safe
+                        string colname = dfname + "[!," + to_string(i + 1) + "]";
+                        string eltype = "eltype(" + colname + ")";
+                        types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
+                        pxs[i] = (void*)JL_eval(colname);
+                        if (types[i] != 7)
+                            pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
+                    }
+                }
 
 #if SYSTEM==APPLEMAC
-            dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
+                dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
 #else
 #pragma omp parallel
-            {
+                {
 #pragma omp for
-                for (ST_int i = 0; i < SF_nvars(); i++)
+                    for (ST_int i = 0; i < SF_nvars(); i++)
 #endif
+{
+                        if (types[i] == 1)
+                            copytodf(touse, i + 1, (int8_t*)(pxs[i]), int8max, nomissing);
+                        else if (types[i] == 2)
+                            copytodf(touse, i + 1, (int16_t*)(pxs[i]), int16max, nomissing);
+                        else if (types[i] == 3)
+                            copytodf(touse, i + 1, (int32_t*)(pxs[i]), int32max, nomissing);
+                        else if (types[i] == 4)
+                            copytodf(touse, i + 1, (int64_t*)(pxs[i]), int64max, nomissing);
+                        else if (types[i] == 5)
+                            copytodf(touse, i + 1, (float*)(pxs[i]), NaN32, nomissing);
+                        else if (types[i] == 6) {
+                            copytodf(touse, i + 1, (double*)(pxs[i]), NaN64, nomissing);
+                        } else {
+                            char* _tousej = touse;
+                            ST_int ip1 = i + 1;
+                            int64_t k = 1;
+                            ST_int len;
 
-                    if (types[i] == 1)
-                        copytodf(touse, i + 1, (int8_t*)(pxs[i]), int8max, NoMissing);
-                    else if (types[i] == 2)
-                        copytodf(touse, i + 1, (int16_t*)(pxs[i]), int16max, NoMissing);
-                    else if (types[i] == 3)
-                        copytodf(touse, i + 1, (int32_t*)(pxs[i]), int32max, NoMissing);
-                    else if (types[i] == 4)
-                        copytodf(touse, i + 1, (int64_t*)(pxs[i]), int64max, NoMissing);
-                    else if (types[i] == 5)
-                        copytodf(touse, i + 1, (float*)(pxs[i]), NaN32, NoMissing);
-                    else if (types[i] == 6)
-                        copytodf<double>(touse, i + 1, (double*)(pxs[i]), NaN64, NoMissing);  // last two args not used
-                    else {
-                        char* _tousej = touse;
-                        ST_int ip1 = i + 1;
-                        int64_t k = 1;
-                        ST_int len;
-
-                        if (SF_var_is_strl(ip1)) {
-                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                if (*_tousej++) {
-                                    len = SF_sdatalen(ip1, j);
-                                    char* val = (char*)malloc((len + 1) * sizeof(char));
-                                    SF_strldata(ip1, j, val, len+1);
-                                    JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                                    free(val);
-                                }
+                            if (SF_var_is_strl(ip1)) {
+                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                    if (*_tousej++) {
+                                        len = SF_sdatalen(ip1, j);
+                                        char* val = (char*)malloc((len + 1) * sizeof(char));
+                                        SF_strldata(ip1, j, val, len + 1);
+                                        JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                                        free(val);
+                                    }
+                            }
+                            else {  // regular string
+                                char val[2046];
+                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                    if (*_tousej++) {
+                                        SF_sdata(ip1, j, val);
+                                        JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                                    }
+                            }
                         }
-                        else {  // regular string
-                            char val[2046];
-                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                if (*_tousej++) {
-                                    SF_sdata(ip1, j, val);
-                                    JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                                }
-                        }
-                    }
+}
 #if SYSTEM==APPLEMAC
-                );
+                    );
 #else
-            }
+                }
 #endif
-            free(types);
+                free(types);
+                free(pxs);
+            }
             free(touse);
-            free(pxs);
             return 0;
         }
-        // argv[0] = "GetVarsFromDF","GetVarsFromDFNoMissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
+        // argv[0] = "GetVarsFromDF","GetVarsFromDFnomissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
         // argv[1] = DataFrame name
         // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
         // argv[3] = string rendering of length of that macro
         // argv[4] = string rendering of number of entries in macro
-        NoMissing = !strcmp(argv[0], "GetVarsFromDFNoMissing");
-        if (NoMissing || !strcmp(argv[0], "GetVarsFromDF")) {
+        nomissing = !strcmp(argv[0], "GetVarsFromDFnomissing");
+        if (nomissing || !strcmp(argv[0], "GetVarsFromDF")) {
             string dfname = string(argv[1]);
 
             size_t nobs = (size_t)JL_unbox_int64(JL_eval("size(" + dfname + ",1)"));
@@ -435,7 +449,7 @@ STDLL stata_call(int argc, char* argv[])
                 pxs[i] = (void*)JL_eval("stataplugininterface.x");
                 types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
 
-                if (!NoMissing)
+                if (!nomissing)
                     pmissings[i] = JL_unbox_int64(JL_eval("eltype(" + colref + ") <: Union{<:Any, Missing}")) ?
                                         (char*)jl_array_data(JL_eval("map(ismissing," + colref + ")")) :
                                         NULL;
@@ -455,17 +469,17 @@ STDLL stata_call(int argc, char* argv[])
 #endif
                 {
                     if      (!strcmp(types[i], "Int8"))
-                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], pmissings[i], NoMissing);
+                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Int16"))
-                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], pmissings[i], NoMissing);
+                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Int32"))
-                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], pmissings[i], NoMissing);
+                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Int64"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], pmissings[i], NoMissing);
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Float32"))
-                        copyfromdf(touse, i + 1, (float*)pxs[i], pmissings[i], NoMissing);
+                        copyfromdf(touse, i + 1, (float*)pxs[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Float64"))
-                        copyfromdf(touse, i + 1, (double*)pxs[i], pmissings[i], NoMissing);
+                        copyfromdf(touse, i + 1, (double*)pxs[i], pmissings[i], nomissing);
                     else {
                         char* _tousej = touse;
                         ST_int ip1 = i + 1;

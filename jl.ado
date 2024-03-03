@@ -110,8 +110,8 @@ program define jl, rclass
     
     assure_julia_started
     
-    local cmd `1'
     tokenize `"`0'"', parse(" ,")
+    local cmd `1'
     macro shift
     local 0 `*'
 
@@ -155,8 +155,8 @@ program define jl, rclass
       set obs `r(ans)'
       jl GetVarsFromDF `cols', source(`source') 
     }
-    else if inlist(`"`cmd'"', "PutVarsToDF", "PutVarsToDFNoMissing") {
-      syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly]
+    else if inlist(`"`cmd'"', "PutVarsToDF") {
+      syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing]
       if `"`destination'"'=="" local destination df
         else confirm names `destination'
       local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
@@ -165,19 +165,22 @@ program define jl, rclass
         confirm names `cols'
         _assert `:word count `cols''!=`ncols', msg("Source and destination variable lists different lengths.") rc(198) 
       }
-      foreach col in `cols' {
-        local type: type `col'
-        local types `types' `=cond(substr("`type'",1,3)=="str", "str", cond("`doubleonly'"=="", "`type'", "double"))'
+      if "`doubleonly'"=="" {
+        foreach col in `cols' {
+          local type: type `col'
+          local types `types' `=cond(substr("`type'",1,3)=="str", "str", "`type'")'
+        }
       }
+      else local types = "double " * `ncols'
       if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
-        else                local dfcmd `destination' = DataFrame(Matrix{Float64}(undef, %i, `ncols'), :auto, copycols=false); rename!(`destination', split("`cols'"))
-      plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"' _dfcmd `:strlen local dfcmd'
-      if "`cmd'"=="PutVarsToDF" jl, qui: stataplugininterface.NaN2missing(`destination')
+      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' _dfcmd `:strlen local dfcmd'
+      if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
+      if "`doubleonly'"!="" jl: rename!(`destination', vec(split("`cols'")))
     }
-    else if inlist(`"`cmd'"', "PutVarsToMat", "PutVarsToMatNoMissing") {
-      syntax [varlist] [if] [in], DESTination(string)
+    else if inlist(`"`cmd'"', "PutVarsToMat") {
+      syntax [varlist] [if] [in], DESTination(string) [noMISSing]
       confirm names `destination'
-      plugin call _julia `varlist' `if' `in', `cmd' `"`destination'"'
+      plugin call _julia `varlist' `if' `in', `cmd'`missing' `"`destination'"'
     }
     else if `"`cmd'"'=="GetVarsFromMat" {
       syntax namelist [if] [in], source(string asis) [replace]
@@ -188,8 +191,8 @@ program define jl, rclass
       }
       plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"'
     }
-    else if inlist(`"`cmd'"', "GetVarsFromDF", "GetVarsFromDFNoMissing") {
-      syntax namelist [if] [in], [source(string) replace COLs(string asis) noCOMPress]
+    else if inlist(`"`cmd'"', "GetVarsFromDF") {
+      syntax namelist [if] [in], [source(string) replace COLs(string asis) noCOMPress noMISSing]
       if `"`source'"'=="" local source df
       if `"`cols'"'=="" local cols `namelist'
         else {
@@ -211,7 +214,7 @@ program define jl, rclass
           label values `col' `col'
         }
       }
-      plugin call _julia `namelist' `if' `in', `cmd' `"`source'"' _cols `:strlen local cols' `ncols'
+      plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
       if "`compress'"=="" qui compress `namelist'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
@@ -292,3 +295,7 @@ end
 * 0.8.1 Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
 * 0.9.0 Added interruptible option and multithreaded variable copying
 * 0.9.1 Reverted to complex syntax for C++ variable copying routines, to avoid limit on # of vars
+
+set obs 1
+gen double x = 1.
+jl PutVarsToDF, double nomiss

@@ -45,29 +45,29 @@ set obs 10
 drawnorm x
 jl PutVarsToDF x
 jl: df
-jl PutVarsToDFNoMissing x
+jl PutVarsToDF x, nomiss
 jl: df
 jl PutVarsToMat x, dest(X)
 jl: X
-jl PutVarsToMatNoMissing x, dest(X)
+jl PutVarsToMat x, dest(X) nomiss
 jl: X
 
 jl PutVarsToDF x in 2/4
 jl: df
 replace x = .
-jl GetVarsFromDFNoMissing x in 2/4, replace
+jl GetVarsFromDF x in 2/4, replace nomissing
 list x
 
 drawnorm y
 jl PutVarsToDF x y
 sum
 replace x = .
-cap noi jl GetVarsFromDFNoMissing x y  // should error
-cap noi jl GetVarsFromDFNoMissing x y, replace  // should error
+cap noi jl GetVarsFromDF x y, nomiss  // should error
+cap noi jl GetVarsFromDF x y, nomiss replace
 sum
 
 jl: df[1,2] = NaN
-jl GetVarsFromDFNoMissing y, replace
+jl GetVarsFromDF y, replace nomiss
 di y
 
 jl: z = Float32[1.; 2.; 3.]
