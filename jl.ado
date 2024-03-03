@@ -156,7 +156,7 @@ program define jl, rclass
       jl GetVarsFromDF `cols', source(`source') 
     }
     else if `"`cmd'"'=="PutVarsToDF" {
-      syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing]
+      syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing noLABel]
       if `"`destination'"'=="" local destination df
         else confirm names `destination'
       local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
@@ -176,10 +176,26 @@ program define jl, rclass
       plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"'
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
       if "`doubleonly'"!="" jl: rename!(`destination', vec(split("`cols'")))
+      if "`label'"=="" {
+        foreach col in `cols' {
+          local labname: value label `col'
+          if "`labname'" != "" {
+            local recodecmd
+            qui levels `col'
+            foreach l in `r(levels)' {
+              local lab: label(`col') `l'
+              if "`lab'"!="" {
+                local recodecmd `recodecmd', `l'=>raw"`lab'"
+              }
+            }
+            cap noi jl, qui: `destination'.`col' = CategoricalVector(recode(`destination'.`col' `recodecmd'))
+          }
+        }        
+      }
     }
     else if `"`cmd'"'=="save" {
-      syntax [namelist(max=1)]
-      jl PutVarsToDF, dest(`namelist')
+      syntax [namelist(max=1)], [NOLABel DOUBLEonly NOMISSing]
+      jl PutVarsToDF, dest(`namelist') `nolabel' `doubleonly' `nomissing'
     }
     else if `"`cmd'"'=="PutVarsToMat" {
       syntax [varlist] [if] [in], DESTination(string) [noMISSing]
