@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 0.9.0 22jan2024}{...}
+{* *! jl 0.10.0 3mar2024}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -22,11 +22,11 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synoptset 22 tabbed}{...}
 {synopthdr:subcommand}
 {synoptline}
-{synopt:{opt PutVarsToDF}}Copy Stata variables to Julia DataFrame, handling missings{p_end}
-{synopt:{opt PutVarsToDFNoMissing}}Copy Stata variables to Julia DataFrame; no handling of missings{p_end}
-{synopt:{opt PutVarsToMat}}Copy Stata variables to Julia matrix, handling missings{p_end}
-{synopt:{opt PutVarsToDFNoMissing}}Copy Stata variables to Julia matrix; no handling of missings{p_end}
+{synopt:{opt use}}Load Julia DataFrame to current Stata data set{p_end}
+{synopt:{opt save}}Save current data set to Julia DataFrame{p_end}
+{synopt:{opt PutVarsToDF}}Copy Stata variables to Julia DataFrame{p_end}
 {synopt:{opt GetVarsFromDF}}Copy Stata variables from Julia DataFrame, mapping NaN to missing{p_end}
+{synopt:{opt PutVarsToMat}}Copy Stata variables to Julia matrix{p_end}
 {synopt:{opt GetVarsFromMat}}Copy Stata variables from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
 {synopt:{opt GetMatFromMat}}Copy Stata matrix from Julia matrix, mapping NaN to missing{p_end}
@@ -35,20 +35,21 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synoptline}
 {p2colreset}{...}
 
-{phang}
-{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)}]
+{phang}{cmd:jl use} {it:dataframename}, [{opt clear}]{p_end}
+{phang}-or-{p_end}
+{phang}{cmd:jl use} [{varlist}] {cmd:using} {it:dataframename}, [{opt clear}]{p_end}
 
 {phang}
-{cmd:jl PutVarsToDFNoMissing} [{varlist}] {ifin}, [{opt col:s(string)} {opt dest:ination(string)}]
+{cmd:jl save} [{it:dataframename}]
+
+{phang}
+{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)} {opt nomiss:ing} {opt double:only}]
+
+{phang}
+{cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source(string)} {opt replace} {opt nomiss:ing}]
 
 {phang}
 {cmd:jl PutVarsToMat} [{varlist}] {ifin}, {opt dest:ination(string)}
-
-{phang}
-{cmd:jl PutVarsToMatNoMissing} [{varlist}] {ifin}, {opt dest:ination(string)}
-
-{phang}
-{cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source(string)} {opt replace}]
 
 {phang}
 {cmd:jl GetVarsFromMat} {varlist} {ifin}, {opt source(string)}
@@ -85,10 +86,11 @@ functions hew closely to those in the {browse "https://www.stata.com/plugins":St
 {cmd:jl: SF_macro_save("a", "3")} is equivalent to {cmd:global a 3}.
 
 {pstd}
-Because Julia does just-in-time-compilation, Julia-based commands take longer on first use.
+Because Julia does just-in-time-compilation, {it:Julia-based commands take longer on first use and even longer on first installation.}
 
 {pstd}
 The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
+
 {pmore}{inp} jl: local s = 0; for i in 1:10 s += i end; s {p_end}
 
 {pmore}{inp} jl: {space 14}/// {p_end}
@@ -99,18 +101,24 @@ The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado 
 {pmore}{inp} {space 4}s{p_end}
 
 {pstd}
-The data-copying subcommands are low-level and high-performance. On the Stata side, they interact with
-the {browse "https://www.stata.com/plugins":Stata Plugin Interface} (SPI). When copying 
-from Stata to Julia, all numeric data, whether stored as {cmd:byte}, {cmd:int}, 
-{cmd:long}, {cmd:float}, or {cmd:double}, is converted
-to {cmd:double}--{cmd:Float64} in Julia--beacuse that is how the SPI provides the values. 
+The data-copying subcommands come in high- and low-level variants. The high-level {cmd:jl use} and {cmd:jl save} subcommands have similar syntax
+to Stata's {help use} and {help save}, but copy to and from Julia DataFrames. Unlike {cmd:jl GetVarsFromDF}, {cmd:jl use}
+will clear the current data set if the {opt clear} option is included, and ensure that the new data set has enough rows to receive all the data.
 
 {pstd}
-The subcommands whose names end with "NoMissing" are intended for data known to contain
-no missing values; they are faster. How they map missing values is indeterminate. In
-contrast, {cmd:PutVarsToDF} maps Stata missing values to Julia {cmd:missing}.
-As a result, columns in the destination DataFrame will have type {cmd:Vector{Float64?}}, which is short for
-Vector{Union{Missing, Float64}}, and is the standard type for accomodating missing values.
+The low-level routines give more control over data copying and include options to improve performance that are 
+useful when using {cmd:jl} to write a Stata program. By default, the {cmd:jl PutVarsToDF} subcommand will map Stata data columns
+to Julia DataFrame columns of corresponding type, and mark all destination columns to allow missing values. {cmd:jl GetVarsFromDF} does
+something similar in the other direction. {cmd:PutVarsToDF}'s {opt nomiss:ing} option increases speed and is appropriate for variables known to contain no missing values. 
+Another time-saving option, {opt double:only}, causes {cmd:jl PutVarsToDF} to map all numeric Stata {help data_types:data types}, to double-precision numbers--called {cmd:double} in Stata
+and {cmd:Float64} in Julia. (Treatment of strings is then undefined.)
+
+{pstd}
+When copying to Julia, any existing DataFrame of the same name is automatically overwritten.
+
+{pstd}
+{cmd:jl PutVarsToDF} and {cmd:jl save} do not transfer Stata value labels. However, {cmd:jl GetVarsFromDF} and {cmd:jl use} do convert categorical variables in Julia
+DataFrames to labelled variables in Stata.
 
 {pstd}
 The {cmd:SetEnv} subcommand switches to a package environment associated with the supplied 
@@ -147,8 +155,7 @@ the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legac
 {pstd}
 After installing Julia, restart Stata for good measure.
 
-{pstd} If the Julia package DataFrames.jl is not installed, {cmd:jl} will attempt to install it on first
-use. That can take a minute.
+{pstd} On first use, {cmd:jl} will attempt to install the Julia packages DataFrames.jl and CategoricalArrays.jl. That can take a minute.
 
 
 {title:Installing the JuliaMono font}

@@ -149,8 +149,6 @@ jl_value_t* JL_eval(string cmd) {
 
 template <typename T>
 void copytodf(char* touse, ST_int i, T* px, T missval, char nomissing) {
-SF_error((char*)"152");
-return;
     char* _tousej = touse;
     double val;
     if (nomissing) {
@@ -305,8 +303,7 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
-        // argv[2] = name of Stata macro (beginning with "_" if a local) with DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
-        // argv[3] = string rendering of length of that macro
+        // argv[2] = DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
         nomissing = !strcmp(argv[0], "PutVarsToDFnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToDF")) {
             string dfname = string(argv[1]);
@@ -322,22 +319,12 @@ STDLL stata_call(int argc, char* argv[])
                 void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
                 int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
 
-                if (strcmp(argv[2], "")) {  // double-only mode
-                    double* _px = (double*)jl_array_data(JL_eval("Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ") |> x->(global " + dfname + "= DataFrame(x, :auto, copycols=false); x)"));
-                    for (ST_int i = 0; i < SF_nvars(); i++) {
-                        pxs[i] = _px;
-                        _px += nobs;
-                        types[i] = 6;
-                    }
-                } else {
-                    ST_int maxlen = atoi(argv[3]) + 1;
-                    char* dfcmd = (char*)malloc(maxlen);
-                    SF_macro_use(argv[2], dfcmd, maxlen);
-                    char* dfcmd2 = (char*)malloc(maxlen + 20);
-                    snprintf(dfcmd2, maxlen + 20, dfcmd, nobs);
-                    JL_eval(dfcmd2);  // construct and allocate DataFrame
+                if (strcmp(argv[2], "")) {
+                    ST_int maxlen = strlen(argv[2]) + 1;
+                    char* dfcmd = (char*)malloc(maxlen + 20);
+                    snprintf(dfcmd, maxlen + 20, argv[2], nobs);
+                    JL_eval(dfcmd);  // construct and allocate DataFrame
                     free(dfcmd);
-                    free(dfcmd2);
 
                     for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because something in this not thread safe
                         string colname = dfname + "[!," + to_string(i + 1) + "]";
@@ -346,6 +333,13 @@ STDLL stata_call(int argc, char* argv[])
                         pxs[i] = (void*)JL_eval(colname);
                         if (types[i] != 7)
                             pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
+                    }
+                } else {  // double-only mode
+                    double* _px = (double*)jl_array_data(JL_eval("Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ") |> x->(global " + dfname + "= DataFrame(x, :auto, copycols=false); x)"));
+                    for (ST_int i = 0; i < SF_nvars(); i++) {
+                        pxs[i] = _px;
+                        _px += nobs;
+                        types[i] = 6;
                     }
                 }
 

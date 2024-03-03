@@ -1,4 +1,4 @@
-*! jl 0.9.1 15 February 2024
+*! jl 0.10.0 3 March 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -94,7 +94,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 0.9.1
+    return local version 0.10.0
     exit
   }
 
@@ -155,7 +155,7 @@ program define jl, rclass
       set obs `r(ans)'
       jl GetVarsFromDF `cols', source(`source') 
     }
-    else if inlist(`"`cmd'"', "PutVarsToDF") {
+    else if `"`cmd'"'=="PutVarsToDF" {
       syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing]
       if `"`destination'"'=="" local destination df
         else confirm names `destination'
@@ -173,11 +173,15 @@ program define jl, rclass
       }
       else local types = "double " * `ncols'
       if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
-      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' _dfcmd `:strlen local dfcmd'
+      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"'
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
       if "`doubleonly'"!="" jl: rename!(`destination', vec(split("`cols'")))
     }
-    else if inlist(`"`cmd'"', "PutVarsToMat") {
+    else if `"`cmd'"'=="save" {
+      syntax [namelist(max=1)]
+      jl PutVarsToDF, dest(`namelist')
+    }
+    else if `"`cmd'"'=="PutVarsToMat" {
       syntax [varlist] [if] [in], DESTination(string) [noMISSing]
       confirm names `destination'
       plugin call _julia `varlist' `if' `in', `cmd'`missing' `"`destination'"'
@@ -191,8 +195,8 @@ program define jl, rclass
       }
       plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"'
     }
-    else if inlist(`"`cmd'"', "GetVarsFromDF") {
-      syntax namelist [if] [in], [source(string) replace COLs(string asis) noCOMPress noMISSing]
+    else if `"`cmd'"'=="GetVarsFromDF" {
+      syntax namelist [if] [in], [source(string) replace COLs(string asis) noMISSing]
       if `"`source'"'=="" local source df
       if `"`cols'"'=="" local cols `namelist'
         else {
@@ -215,7 +219,6 @@ program define jl, rclass
         }
       }
       plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
-      if "`compress'"=="" qui compress `namelist'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
       syntax name, [source(string asis)]
@@ -262,7 +265,7 @@ program define jl, rclass
   return local ans: copy local ans
 end
 
-program _julia, plugin using(D:\OneDrive\Documents\Macros\julia.ado\jl.pluginWIN64.dll /*jl.plugin*/)
+program _julia, plugin using(jl.plugin)
 
 * properly print a string with newlines
 program define display_multiline
@@ -280,22 +283,19 @@ end
 
 
 * Version history
-* 0.5.0 Initial commit
-* 0.5.1 Fixed memory leak in C code. Added documentation. Bug fixes.
-* 0.5.4 Bug and documentation fixes.
-* 0.5.5 Tweaks
-* 0.5.6 File reorganization
-* 0.6.0 Implemented dynamic runtime loading of libjulia for robustness to Julia installation type
-* 0.6.2 Fixed 0.6.0 crashes in Windows
-* 0.7.0 Dropped UpPkg and added minver() option to AddPkg
-* 0.7.1 Try single as well as double quotes in !julia. Further attack on Windows crashes on errors.
-* 0.7.2 Better handling of exceptions in Julia 
-* 0.7.3 Fixed bug in PutMatToMat
-* 0.8.0 Added SetEnv command
-* 0.8.1 Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
-* 0.9.0 Added interruptible option and multithreaded variable copying
-* 0.9.1 Reverted to complex syntax for C++ variable copying routines, to avoid limit on # of vars
-
-set obs 1
-gen double x = 1.
-jl PutVarsToDF, double nomiss
+* 0.5.0  Initial commit
+* 0.5.1  Fixed memory leak in C code. Added documentation. Bug fixes.
+* 0.5.4  Bug and documentation fixes.
+* 0.5.5  Tweaks
+* 0.5.6  File reorganization
+* 0.6.0  Implemented dynamic runtime loading of libjulia for robustness to Julia installation type
+* 0.6.2  Fixed 0.6.0 crashes in Windows
+* 0.7.0  Dropped UpPkg and added minver() option to AddPkg
+* 0.7.1  Try single as well as double quotes in !julia. Further attack on Windows crashes on errors.
+* 0.7.2  Better handling of exceptions in Julia 
+* 0.7.3  Fixed bug in PutMatToMat
+* 0.8.0  Added SetEnv command
+* 0.8.1  Recompiled in Ubuntu 20.04; fixed Unix AddPkg bug
+* 0.9.0  Added interruptible option and multithreaded variable copying
+* 0.9.1  Reverted to complex syntax for C++ variable copying routines, to avoid limit on # of vars
+* 0.10.0 Full support for Stata data types, including strings. Map CategoricalVector's to data labels. Add use and save commands.
