@@ -175,7 +175,7 @@ program define jl, rclass
       if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
       plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"'
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
-      if "`doubleonly'"!="" jl: rename!(`destination', vec(split("`cols'")))
+      if "`doubleonly'"!="" jl, qui: rename!(`destination', vec(split("`cols'")))
       if "`label'"=="" {
         foreach col in `cols' {
           local labname: value label `col'

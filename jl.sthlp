@@ -40,7 +40,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {phang}{cmd:jl use} [{varlist}] {cmd:using} {it:dataframename}, [{opt clear}]{p_end}
 
 {phang}
-{cmd:jl save} [{it:dataframename}]
+{cmd:jl save} {it:dataframename}, [{opt nolab:el} {opt nomiss:ing} {opt double:only}]
 
 {phang}
 {cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)} {opt nomiss:ing} {opt double:only}]
@@ -117,8 +117,10 @@ and {cmd:Float64} in Julia. (Treatment of strings is then undefined.)
 When copying to Julia, any existing DataFrame of the same name is automatically overwritten.
 
 {pstd}
-{cmd:jl PutVarsToDF} and {cmd:jl save} do not transfer Stata value labels. However, {cmd:jl GetVarsFromDF} and {cmd:jl use} do convert categorical variables in Julia
-DataFrames to labelled variables in Stata.
+The subcommands mapping between Stata data and Julia DataFrames translate between Stata variables with value labels and Julia categorical vectors. However,
+the mapping from Stata to Julia is computationally inefficient--all values are replaced with their labels before conversion to type CategoricalVector, and
+can be prevented with the {opt nolab:el} option.
+
 
 {pstd}
 The {cmd:SetEnv} subcommand switches to a package environment associated with the supplied 
