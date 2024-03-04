@@ -152,7 +152,7 @@ program define jl, rclass
         local cols `namelist'
       }
       qui jl: size(`source',1)
-      set obs `r(ans)'
+      qui set obs `r(ans)'
       jl GetVarsFromDF `cols', source(`source') 
     }
     else if `"`cmd'"'=="PutVarsToDF" {
