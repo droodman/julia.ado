@@ -31,11 +31,11 @@ Hello world!
 . sysuse auto
 (1978 automobile data)
 
-. jl PutVarsToDF   // push all numeric data to Julia DataFrame, named df by default
+. jl save aut   // copy data set to Julia DataFrame called "auto"
 
 . jl: using GLM  // load generalized linear regression package
 
-. jl: m = lm(@formula(price ~ mpg + headroom), df)
+. jl: m = lm(@formula(price ~ mpg + headroom), auto)
 StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}, Vec
 > tor{Int64}}}}, Matrix{Float64}}
 
