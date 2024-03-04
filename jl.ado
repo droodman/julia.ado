@@ -72,16 +72,16 @@ program define assure_julia_started
       exit 198
     }
 
-    qui findfile stataplugininterface.jl
     cap noi {
+      jl AddPkg DataFrames, minver(1.6.1)
+      jl AddPkg CategoricalArrays, minver(0.10.8)
+      jl, qui: using DataFrames, CategoricalArrays
+
+      qui findfile stataplugininterface.jl
       jl, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
       jl, qui: using stataplugininterface
       qui findfile jl.plugin
       jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
-
-      jl AddPkg DataFrames, minver(1.6.1)
-      jl AddPkg CategoricalArrays, minver(0.10.8)
-      jl, qui: using DataFrames, CategoricalArrays
 
       jl, qui: const stataplugininterface.type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6, String=>7)
     }
