@@ -477,23 +477,26 @@ STDLL stata_call(int argc, char* argv[])
                         copyfromdf(touse, i + 1, (float*)pxs[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Float64"))
                         copyfromdf(touse, i + 1, (double*)pxs[i], pmissings[i], nomissing);
-                    else {
-                        char* _tousej = touse;
-                        ST_int ip1 = i + 1;
-                        int64_t k = 1;
-                        char* val;
-                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                            if (*_tousej++) {
-                                val = (char *) JL_string_ptr(JL_call2(getindex, (jl_value_t*)pxs[i], JL_box_int64(k++)));
-                                SF_sstore(ip1, j, val);
-                            }
-                    }
                 }
 #if SYSTEM==APPLEMAC
                 );
 #else
             }
 #endif
+
+            for (ST_int i = 0; i < ncols; i++)  // copying string vars apparently not thread-safe because of jl_*() calls
+                if (!strcmp(types[i], "String")) {
+                    char* _tousej = touse;
+                    ST_int ip1 = i + 1;
+                    int64_t k = 1;
+                    char* val;
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*_tousej++) {
+                            val = (char*)JL_string_ptr(JL_call2(getindex, (jl_value_t*)pxs[i], JL_box_int64(k++)));
+                            SF_sstore(ip1, j, val);
+                        }
+                }
+
             JL_eval("stataplugininterface.s = nothing");
             free(touse);
             free(colnames);
