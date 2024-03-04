@@ -351,7 +351,6 @@ STDLL stata_call(int argc, char* argv[])
 #pragma omp for
                     for (ST_int i = 0; i < SF_nvars(); i++)
 #endif
-{
                         if (types[i] == 1)
                             copytodf(touse, i + 1, (int8_t*)(pxs[i]), int8max, nomissing);
                         else if (types[i] == 2)
@@ -362,39 +361,41 @@ STDLL stata_call(int argc, char* argv[])
                             copytodf(touse, i + 1, (int64_t*)(pxs[i]), int64max, nomissing);
                         else if (types[i] == 5)
                             copytodf(touse, i + 1, (float*)(pxs[i]), NaN32, nomissing);
-                        else if (types[i] == 6) {
+                        else if (types[i] == 6)
                             copytodf(touse, i + 1, (double*)(pxs[i]), NaN64, nomissing);
-                        } else {
-                            char* _tousej = touse;
-                            ST_int ip1 = i + 1;
-                            int64_t k = 1;
-                            ST_int len;
-
-                            if (SF_var_is_strl(ip1)) {
-                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                    if (*_tousej++) {
-                                        len = SF_sdatalen(ip1, j);
-                                        char* val = (char*)malloc((len + 1) * sizeof(char));
-                                        SF_strldata(ip1, j, val, len + 1);
-                                        JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                                        free(val);
-                                    }
-                            }
-                            else {  // regular string
-                                char val[2046];
-                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                    if (*_tousej++) {
-                                        SF_sdata(ip1, j, val);
-                                        JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                                    }
-                            }
-                        }
-}
 #if SYSTEM==APPLEMAC
                     );
 #else
                 }
 #endif
+
+                for (ST_int i = 0; i < SF_nvars(); i++)  // string variable copying apparently not thread-safe
+                    if (types[i] == 7) {
+                        char* _tousej = touse;
+                        ST_int ip1 = i + 1;
+                        int64_t k = 1;
+                        ST_int len;
+
+                        if (SF_var_is_strl(ip1)) {
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++) {
+                                    len = SF_sdatalen(ip1, j);
+                                    char* val = (char*)malloc((len + 1) * sizeof(char));
+                                    SF_strldata(ip1, j, val, len + 1);
+                                    JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                                    free(val);
+                                }
+                        }
+                        else {  // regular string
+                            char val[2046];
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++) {
+                                    SF_sdata(ip1, j, val);
+                                    JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                                }
+                        }
+                    }
+
                 free(types);
                 free(pxs);
             }

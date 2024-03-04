@@ -226,12 +226,13 @@ program define jl, rclass
       forvalues v=1/`ncols' {
         local type: word `v' of `types'
         local col : word `v' of `cols'
-        cap gen `type' `col' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
+        local name: word `v' of `namelist'
+        cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
         qui jl: Int(`source'.`col' isa CategoricalVector)
         if `r(ans)' {
           qui jl: join([string(i) * " \"" * l * "\"" for (i,l) in enumerate(levels(`source'.`col'))], " ")
-          label define `col' `=subinstr(`"`r(ans)'"', `"\""', `"""', .)', replace
-          label values `col' `col'
+          label define `name' `=subinstr(`"`r(ans)'"', `"\""', `"""', .)', replace
+          label values `name' `name'
         }
       }
       plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
