@@ -31,7 +31,7 @@ Hello world!
 . sysuse auto
 (1978 automobile data)
 
-. jl save aut   // copy data set to Julia DataFrame called "auto"
+. jl save auto   // copy data set to Julia DataFrame called "auto"
 
 . jl: using GLM  // load generalized linear regression package
 
