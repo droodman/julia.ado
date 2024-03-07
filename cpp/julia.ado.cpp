@@ -129,8 +129,8 @@ int load_julia(const char* fulllibpath, const char* libdir) {
 
 
 jl_value_t* JL_eval(string cmd) {
-    JL_gc_enable(0);
     jl_value_t* ret = JL_eval_string(cmd.c_str());
+    JL_gc_enable(0);
     if (jl_value_t* ex = JL_exception_occurred()) {
         JL_call2(
             JL_eval_string("Base.showerror"),
@@ -318,8 +318,7 @@ STDLL stata_call(int argc, char* argv[])
 
                 void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
                 int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
-
-                if (strcmp(argv[2], "")) {
+                if (*argv[2]) {
                     ST_int maxlen = strlen(argv[2]) + 1;
                     char* dfcmd = (char*)malloc(maxlen + 20);
                     snprintf(dfcmd, maxlen + 20, argv[2], nobs);
@@ -335,7 +334,7 @@ STDLL stata_call(int argc, char* argv[])
                             pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
                     }
                 } else {  // double-only mode
-                    double* _px = (double*)jl_array_data(JL_eval("Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ") |> x->(global " + dfname + "= DataFrame(x, :auto, copycols=false); x)"));
+                    double* _px = (double*)jl_array_data(JL_eval("stataplugininterface.x = Matrix{Float64}(undef, " + to_string(nobs) + "," + to_string(SF_nvars()) + ");" + dfname + "= DataFrame(stataplugininterface.x, :auto, copycols = false); stataplugininterface.x"));
                     for (ST_int i = 0; i < SF_nvars(); i++) {
                         pxs[i] = _px;
                         _px += nobs;
@@ -371,39 +370,41 @@ STDLL stata_call(int argc, char* argv[])
                 }
 #endif
 
-		for (ST_int i = 0; i < SF_nvars(); i++)  // string var copying not thread-safe
+        for (ST_int i = 0; i < SF_nvars(); i++)  // string var copying not thread-safe
 		 	if (types[i]==7) {
-                            char* _tousej = touse;
-                            ST_int ip1 = i + 1;
-                            int64_t k = 1;
-                            ST_int len;
+                char* _tousej = touse;
+                ST_int ip1 = i + 1;
+                int64_t k = 1;
+                ST_int len;
 
-                            if (SF_var_is_strl(ip1)) {
-                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                    if (*_tousej++) {
-                                        len = SF_sdatalen(ip1, j);
-                                        char* val = (char*)malloc((len + 1) * sizeof(char));
-                                        SF_strldata(ip1, j, val, len + 1);
-                                        JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                                        free(val);
-                                    }
-                            }
-                            else {  // regular string
-                                char val[2046];
-                                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                    if (*_tousej++) {
-                                        SF_sdata(ip1, j, val);
-                                        JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                                    }
-                            }
+                if (SF_var_is_strl(ip1)) {
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*_tousej++) {
+                            len = SF_sdatalen(ip1, j);
+                            char* val = (char*)malloc((len + 1) * sizeof(char));
+                            SF_strldata(ip1, j, val, len + 1);
+                            JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                            free(val);
                         }
-
-                free(types);
-                free(pxs);
+                }
+                else {  // regular string
+                    char val[2046];
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*_tousej++) {
+                            SF_sdata(ip1, j, val);
+                            JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
+                        }
+                }
             }
-            free(touse);
-            return 0;
+
+            free(types);
+            free(pxs);
+            if (!*argv[2])
+                JL_eval("stataplugininterface.x = nothing");
         }
+        free(touse);
+        return 0;
+    }
         // argv[0] = "GetVarsFromDF","GetVarsFromDFnomissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
         // argv[1] = DataFrame name
         // argv[2] = name of Stata macro (beginning with "_" if a local) with names of DataFrame cols
