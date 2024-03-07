@@ -1,7 +1,7 @@
 # julia.ado
 This Stata package gives Stata users access to Julia. It contains three kinds of tools:
 1.  A "jl:" prefix command that lets you send single-line commands from the Stata prompt to Julia and see the results.
-2.  Subcommands such as PutVarsToDF for high-speed copying of data between Julia and Stata.
+2.  Subcommands such as `jl save` and `jl use` for copying data between Julia and Stata.
 3.  Julia functions for reading and writing Stata variables, macros, matrices, and scalars.
 
 ## Installation
@@ -31,11 +31,11 @@ Hello world!
 . sysuse auto
 (1978 automobile data)
 
-. jl PutVarsToDF   // push all numeric data to Julia DataFrame, named df by default
+. jl save auto   // copy data set to Julia DataFrame called "auto"
 
 . jl: using GLM  // load generalized linear regression package
 
-. jl: m = lm(@formula(price ~ mpg + headroom), df)
+. jl: m = lm(@formula(price ~ mpg + headroom), auto)
 StatsModels.TableRegressionModel{LinearModel{GLM.LmResp{Vector{Float64}}, GLM.DensePredChol{Float64, LinearAlgebra.CholeskyPivoted{Float64, Matrix{Float64}, Vec
 > tor{Int64}}}}, Matrix{Float64}}
 
@@ -57,7 +57,4 @@ headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
 ```
 
 ## Possible extensions
-1. Support string variables.
-2. Support Julia categorical variables.
-3. Gracefully handle transfer of non-double numeric types.
-4. Provide fuller Julia REPL experience.
+1. Provide fuller Julia REPL experience.
