@@ -1,4 +1,4 @@
-*! jl 0.10.0 3 March 2024
+*! jl 0.10.1 6 March 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -176,7 +176,7 @@ program define jl, rclass
       plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"'
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
       if "`doubleonly'"!="" jl, qui: rename!(`destination', vec(split("`cols'")))
-      if "`label'"=="" {
+      else if "`label'"=="" {
         foreach col in `cols' {
           local labname: value label `col'
           if "`labname'" != "" {
@@ -316,3 +316,4 @@ end
 * 0.9.0  Added interruptible option and multithreaded variable copying
 * 0.9.1  Reverted to complex syntax for C++ variable copying routines, to avoid limit on # of vars
 * 0.10.0 Full support for Stata data types, including strings. Map CategoricalVector's to data labels. Add use and save commands.
+* 0.10.1 Fixed memory leak
