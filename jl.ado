@@ -47,7 +47,7 @@ program define assure_julia_started
     syntax, [threads(string)]
     if !inlist(`"`threads'"', "", "auto") {
       cap confirm integer number `threads'
-      _assert !_rc & `threads'>0, msg("threads() option must be "auto" or a positive integer") rc(198)
+      _assert !_rc & `threads'>0, msg(`"threads() option must be "auto" or a positive integer"') rc(198)
     }
 
     cap noi {
@@ -61,8 +61,7 @@ program define assure_julia_started
       }
       error _rc
 
-      di as txt "Starting Julia" _c
-      if `"`threads'"' != "" di " with threads=`threads'"
+      di as txt `"Starting Julia `=cond(`"`threads'"'!="", "with threads=`threads'", "")'"'
       mata displayflush() 
       plugin call _julia, start "`libpath'/`libname'" "`libpath'" `threads'
     }

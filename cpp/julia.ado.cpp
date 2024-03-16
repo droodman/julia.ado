@@ -5,7 +5,6 @@
 #include <string>
 #include <limits>
 #include "stplugin.h"
-#include <julia.h>
 using namespace std;
 
 #if SYSTEM==APPLEMAC
@@ -234,13 +233,12 @@ STDLL stata_call(int argc, char* argv[])
             if (load_julia(argv[1], argv[2]))
                 return 998;
 
-            if (argc > 2) {
+            if (argv[3]) {
                 int ac = 2;
                 char** av = (char**)malloc(sizeof(char*) * ac);
                 av[0] = 0;
                 av[1] = (char*)("--threads=" + string(argv[3])).c_str();
                 JL_parse_opts(&ac, &av);
-                free(av);
             }
 
             JL_init();
