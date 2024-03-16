@@ -69,6 +69,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
     int (*jl_gc_enable)(int);
     jl_value_t* (*jl_box_int64)(int64_t);
     jl_value_t* (*jl_pchar_to_string)(const char*, size_t);
+    void (*jl_parse_opts)(int*, char***);
 } julia_fptrs;
 
 #define JL_eval_string        julia_fptrs.jl_eval_string
@@ -84,7 +85,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_gc_enable          julia_fptrs.jl_gc_enable
 #define JL_box_int64          julia_fptrs.jl_box_int64
 #define JL_pchar_to_string    julia_fptrs.jl_pchar_to_string
-
+#define JL_parse_opts         julia_fptrs.jl_parse_opts
 
 #if SYSTEM==STWIN32
 #include "windows.h"
@@ -123,6 +124,7 @@ int load_julia(const char* fulllibpath, const char* libdir) {
     JL_gc_enable = (int (*)(int))GetProcAddress(hDLL, "jl_gc_enable");
     JL_box_int64 = (jl_value_t * (*)(int64_t))GetProcAddress(hDLL, "jl_box_int64");
     JL_pchar_to_string = (jl_value_t * (*)(const char*, size_t))GetProcAddress(hDLL, "jl_pchar_to_string");
+    JL_parse_opts = (void (*)(int*, char***))GetProcAddress(hDLL, "jl_parse_opts");
 
     return JL_eval_string == NULL || JL_init == NULL || JL_gc_enable == NULL || JL_atexit_hook == NULL || JL_unbox_float32 == NULL || JL_unbox_float64 == NULL || JL_unbox_int64 == NULL || JL_exception_occurred == NULL || JL_call2 == NULL || JL_call3 == NULL || JL_string_ptr == NULL || JL_box_int64 == NULL || JL_pchar_to_string == NULL;
 }
@@ -149,26 +151,43 @@ jl_value_t* JL_eval(string cmd) {
 
 template <typename T>
 void copytodf(char* touse, ST_int i, T* px, T missval, char nomissing) {
-    char* _tousej = touse;
     double val;
-    if (nomissing) {
-        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-            if (*_tousej++) {
+    if (nomissing)
+        if (touse) {
+            char* _tousej = touse;
+            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                if (*_tousej++) {
+                    SF_vdata(i, j, &val);
+                    *px++ = (T)val;
+                }
+        } else
+            for (ST_int j = 1; j <= SF_nobs(); j++) {
                 SF_vdata(i, j, &val);
                 *px++ = (T)val;
             }
-    } else
+    else if (touse) {
+        char* _tousej = touse;
         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
             if (*_tousej++) {
                 SF_vdata(i, j, &val);
-                *px++ = SF_is_missing(val)? missval : (T)val;
+                *px++ = SF_is_missing(val) ? missval : (T)val;
             }
+    } else
+        for (ST_int j = 1; j <= SF_nobs(); j++) {
+            SF_vdata(i, j, &val);
+            *px++ = SF_is_missing(val) ? missval : (T)val;
+        }
+
 }
 template <>
 void copytodf<double>(char* touse, ST_int i, double* px, double missval, char nomissing) {
-    char* _tousej = touse;
-    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-        if (*_tousej++)
+    if (touse) {
+        char* _tousej = touse;
+        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+            if (*_tousej++)
+                SF_vdata(i, j, px++);
+    } else
+        for (ST_int j = 1; j <= SF_nobs(); j++)
             SF_vdata(i, j, px++);
 }
 
@@ -210,11 +229,22 @@ STDLL stata_call(int argc, char* argv[])
         // argv[0] = "start": initiate Julia instance
         // argv[1] = full path to libjulia
         // argv[2] = directory part of argv[1], Windows only
+        // argv[3] = optional: --threads= argument value (number as a string or "auto")
         if (!strcmp(argv[0], "start")) {
             if (load_julia(argv[1], argv[2]))
                 return 998;
 
+            if (argc > 2) {
+                int ac = 2;
+                char** av = (char**)malloc(sizeof(char*) * ac);
+                av[0] = 0;
+                av[1] = (char*)("--threads=" + string(argv[3])).c_str();
+                JL_parse_opts(&ac, &av);
+                free(av);
+            }
+
             JL_init();
+
             JL_eval("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
             
             int8max = numeric_limits<int8_t>::max();
@@ -244,7 +274,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "eval": evaluate a Julia expression but for speed return no response
+        // argv[0] = "evalqui": evaluate a Julia expression but for speed return no response
         // argv[1] = expression
         if (!strcmp(argv[0], "evalqui")) {
             if (argc > 1)
@@ -304,18 +334,25 @@ STDLL stata_call(int argc, char* argv[])
         // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
         // argv[2] = DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
+        // argv[3] = null string for full sample copy (no if or in clause)
         nomissing = !strcmp(argv[0], "PutVarsToDFnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToDF")) {
             string dfname = string(argv[1]);
 
-            ST_int nobs = 0;
-            char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
-            char* tousej = touse;
-            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                nobs += (*tousej++ = (char)SF_ifobs(j));
+            ST_int nobs;
+            char* touse;
+            if (*argv[3]) {
+                nobs = 0;
+                touse = (char*)malloc(SF_in2() - SF_in1() + 1);
+                char* tousej = touse;
+                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                    nobs += (*tousej++ = (char)SF_ifobs(j));
+            } else {
+                nobs = SF_in2() - SF_in1() + 1;
+                touse = NULL;
+            }
 
             if (nobs) {
-
                 void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
                 int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
                 if (*argv[2]) {

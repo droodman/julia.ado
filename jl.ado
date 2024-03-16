@@ -42,8 +42,14 @@ end
 cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
-
+  
   if `"$julia_loaded"' == "" {
+    syntax, [threads(string)]
+    if !inlist(`"`threads'"', "", "auto") {
+      cap confirm integer number `threads'
+      _assert !_rc & `threads'>0, msg("threads() option must be "auto" or a positive integer") rc(198)
+    }
+
     cap noi {
       cap wheresjulia
       cap if _rc & c(os)!="Windows" wheresjulia ~/.juliaup/bin/
@@ -54,7 +60,11 @@ program define assure_julia_started
         }
       }
       error _rc
-      plugin call _julia, start "`libpath'/`libname'" "`libpath'"
+
+      di as txt "Starting Julia" _c
+      if `"`threads'"' != "" di " with threads=`threads'"
+      mata displayflush() 
+      plugin call _julia, start "`libpath'/`libname'" "`libpath'" `threads'
     }
     if _rc {
       di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that you are"
@@ -100,21 +110,28 @@ program define jl, rclass
 
   cap _on_colon_parse `0'
   if _rc {
-    if `"`1'"'=="stop" {
+    tokenize `"`0'"', parse(" ,")
+    local cmd `1'
+    macro shift
+    local 0 `*'
+
+    if `"`cmd'"'=="stop" {
       if 0$julia_loaded {
         plugin call _julia, stop
         global julia_loaded
       }
       exit
     }
+
+    if `"`cmd'"'=="start" {
+      syntax, [Threads(passthru)]
+      if 0$julia_loaded & `"`threads'"'!="" di as txt "threads() option ignored because Julia is already started."
+      assure_julia_started, `threads'
+      exit
+    }
     
     assure_julia_started
     
-    tokenize `"`0'"', parse(" ,")
-    local cmd `1'
-    macro shift
-    local 0 `*'
-
     if `"`cmd'"'=="SetEnv" {
       jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
       jl AddPkg DataFrames
@@ -127,7 +144,7 @@ program define jl, rclass
       local notinstalled `r(ans)'
       if !`notinstalled' & "`minver'"!="" qui jl: length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])
       if `notinstalled' | `r(ans)' {
-        di as txt "The Julia package `namelist' is not installed and up-to-date. Attempting to update it. This could take a few minutes." _n 
+        di as txt "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes." _n 
         mata displayflush() 
         jl, qui: Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))
         if _rc {
@@ -173,7 +190,7 @@ program define jl, rclass
       }
       else local types = "double " * `ncols'
       if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
-      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"'
+      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"'
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
       if "`doubleonly'"!="" jl, qui: rename!(`destination', vec(split("`cols'")))
       else if "`label'"=="" {
