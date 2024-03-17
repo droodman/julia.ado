@@ -124,7 +124,7 @@ program define jl, rclass
 
     if `"`cmd'"'=="start" {
       syntax, [Threads(passthru)]
-      if 0$julia_loaded & `"`threads'"'!="" di as txt "threads() option ignored because Julia is already started."
+      if 0$julia_loaded & `"`threads'"'!="" di as txt "threads() option ignored because Julia is already running."
       assure_julia_started, `threads'
       exit
     }

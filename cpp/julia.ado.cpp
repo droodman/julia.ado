@@ -5,6 +5,7 @@
 #include <string>
 #include <limits>
 #include "stplugin.h"
+#include <julia.h>
 using namespace std;
 
 #if SYSTEM==APPLEMAC

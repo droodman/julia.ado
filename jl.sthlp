@@ -22,6 +22,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synoptset 22 tabbed}{...}
 {synopthdr:subcommand}
 {synoptline}
+{synopt:{opt use}}Start Julia, optionally setting number of threads{p_end}
 {synopt:{opt use}}Load Julia DataFrame to current Stata data set{p_end}
 {synopt:{opt save}}Save current data set to Julia DataFrame{p_end}
 {synopt:{opt PutVarsToDF}}Copy Stata variables to Julia DataFrame{p_end}
@@ -34,6 +35,9 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
 {synoptline}
 {p2colreset}{...}
+
+{phang}
+{cmd:jl start} [, {cmdab:t:hreads(}{it:integer or} {cmd:auto)}]{p_end}
 
 {phang}{cmd:jl use} {it:dataframename}, [{opt clear}]{p_end}
 {phang}-or-{p_end}
@@ -72,7 +76,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 
 {pstd}
 {cmd:jl} gives access from the Stata prompt to the free programming language Julia. It provides three
-sorts of tools:
+main sorts of tools:
 
 {p 4 7 0}
 1. The {cmd:jl:} prefix command, which allows you to send commands to Julia and see the results. Example: {cmd:jl: 1+1}.
@@ -101,6 +105,13 @@ The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado 
 {pmore}{inp} {space 4}s{p_end}
 
 {pstd}
+The {cmd: jl start} command is often not needed. If it is not used, then Julia will be automatically started anyway the first time it is called in a Stata 
+session. The one reason to use the command is to control the number of CPU threads available to Julia, through the {opt t:hreads()} option. Many Julia 
+programs exploit multithreading to save time. In Windows and Linux, but not macOS, you can also control the default number of threads by editing the JULIA_NUM_THREADS 
+variable. {cmd:jl start} will have no effect unless it comes before every other {cmd:jl} command in a Stata session, and before any use of
+packages such as {cmd:reghdfejl} and {cmd:boottest} that call {cmd:jl}. For more, see the (see {help jl##threads:section on threads below}).
+
+{pstd}
 The data-copying subcommands come in high- and low-level variants. The high-level {cmd:jl use} and {cmd:jl save} subcommands have similar syntax
 to Stata's {help use} and {help save}, but copy to and from Julia DataFrames. Unlike {cmd:jl GetVarsFromDF}, {cmd:jl use}
 will clear the current data set if the {opt clear} option is included, and ensure that the new data set has enough rows to receive all the data.
@@ -120,7 +131,6 @@ When copying to Julia, any existing DataFrame of the same name is automatically 
 The subcommands mapping between Stata data and Julia DataFrames translate between Stata variables with value labels and Julia categorical vectors. However,
 the mapping from Stata to Julia is computationally inefficient--all values are replaced with their labels before conversion to type CategoricalVector, and
 can be prevented with the {opt nolab:el} option.
-
 
 {pstd}
 The {cmd:SetEnv} subcommand switches to a package environment associated with the supplied 
@@ -173,8 +183,9 @@ Unicode characters that often appear in Julia output, such as {browse "https://w
 {title:Setting the number of CPU threads}
 
 {pstd}
-Many Julia programs exploit multithreading. However, Julia is typically installed to only allow 1 thread by default. To 
-change this default for {cmd:jl}, edit your operating system's JULIA_NUM_THREADS environment variable. Set it to an integer such as 4 or 8,
+Many Julia programs exploit multithreading. However, Julia is typically installed to only allow 1 thread by default. In Windows and Linux, and in
+macOS if you willing to endure a little inconvenience (see below), you can
+permanently override this default by editing your operating system's JULIA_NUM_THREADS environment variable. Set it to an integer such as 4 or 8,
 or to "auto" to let Julia decide. On CPUs with hyperthreading or efficiency (E) cores as well as performance (P) cores,
 the optimal number is usually not the maximum the CPU technically supports. A good guess at the optimum is the number of P cores.
 
@@ -192,6 +203,24 @@ How to set this variable depends on the operating system:
 button on the keyboard and type "environment variables".
 
 {pstd}
+Now, in macOS, editing ~/.zshenv will have no effect unless you launch Stata from a terminal window instead of the graphical desktop. To do so:
+
+{p 4 6 0}
+* Type Command-spacebar to launch Spotlight Search, then type "Stata" and observe the autocompletion to determine the exact name of the Stata app on your
+system. For example, if you have Stata/MP, you should see "StataMP".
+
+{p 4 6 0}
+* Clear the Spotlight Search box and then type "terminal" and the return key to launch a terminal window.
+
+{p 4 6 0}
+* Now type "open -a [Stata app name]" where [Stata app name] is, for example, "StataMP".
+
+{pstd}
+An alternative way to set the number of threads is to explicitly launch Julia inside Stata with {cmd:jl start, threads(string)} where {cmd:string} is a positive
+integer or {cmd:auto}. The latter tells Julia to pick the number of threads. To have any effect, this command must precede any other invocation of {cmd:jl} in a Stata session, 
+and any other invocation of Julia-calling commands such as {cmd:reghdfejl} and {cmd:boottest}.
+
+{pstd}
 To determine how many threads are available to a {cmd:jl} session, type "{stata "jl: Threads.nthreads()"}" at the Stata prompt.
 
 
@@ -200,7 +229,7 @@ To determine how many threads are available to a {cmd:jl} session, type "{stata 
 {pstd}
 {cmd:jl,} {opt qui:etly}{cmd::...} is nearly the same as {cmd:quietly jl:...}. The difference
 is that the first will stop the software from copying the output of a Julia command to Stata before suppressing
-that output. This will save time if the ou
+that output. This will save time if the output is very long and not needed.
 
 {pstd}
 The {opt inter:ruptible} option of the {cmd:jl:} prefix command makes it possible, at a small performance cost, to interrupt a Julia command the way you
