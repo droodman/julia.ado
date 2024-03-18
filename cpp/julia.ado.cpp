@@ -305,7 +305,6 @@ STDLL stata_call(int argc, char* argv[])
         // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
         // argv[2] = DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
-        // argv[3] = null string for full sample copy (no if or in clause)
         nomissing = !strcmp(argv[0], "PutVarsToDFnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToDF")) {
             string dfname = string(argv[1]);
