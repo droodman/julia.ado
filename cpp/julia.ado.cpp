@@ -85,6 +85,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_box_int64          julia_fptrs.jl_box_int64
 #define JL_pchar_to_string    julia_fptrs.jl_pchar_to_string
 
+
 #if SYSTEM==STWIN32
 #include "windows.h"
 #define strtok_r strtok_s
@@ -156,12 +157,11 @@ void copytodf(char* touse, ST_int i, T* px, T missval, char nomissing) {
                 SF_vdata(i, j, &val);
                 *px++ = (T)val;
             }
-    }
-    else
+    } else
         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
             if (*_tousej++) {
                 SF_vdata(i, j, &val);
-                *px++ = SF_is_missing(val) ? missval : (T)val;
+                *px++ = SF_is_missing(val)? missval : (T)val;
             }
 }
 template <>
@@ -210,7 +210,6 @@ STDLL stata_call(int argc, char* argv[])
         // argv[0] = "start": initiate Julia instance
         // argv[1] = full path to libjulia
         // argv[2] = directory part of argv[1], Windows only
-        // argv[3] = optional: --threads= argument value (number as a string or "auto")
         if (!strcmp(argv[0], "start")) {
             if (load_julia(argv[1], argv[2]))
                 return 998;
@@ -246,7 +245,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "evalqui": evaluate a Julia expression but for speed return no response
+        // argv[0] = "eval": evaluate a Julia expression but for speed return no response
         // argv[1] = expression
         if (!strcmp(argv[0], "evalqui")) {
             if (argc > 1)
