@@ -42,7 +42,7 @@ end
 cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
-
+  
   if `"$julia_loaded"' == "" {
     cap noi {
       cap wheresjulia
@@ -101,7 +101,8 @@ program define jl, rclass
 
   cap _on_colon_parse `0'
   if _rc {
-    if `"`1'"'=="stop" {
+
+    if `"`cmd'"'=="stop" {
       if 0$julia_loaded {
         plugin call _julia, stop
         global julia_loaded
@@ -109,12 +110,12 @@ program define jl, rclass
       exit
     }
 
-    assure_julia_started
-    
     tokenize `"`0'"', parse(" ,")
     local cmd `1'
     macro shift
     local 0 `*'
+    
+    assure_julia_started
     
     if `"`cmd'"'=="SetEnv" {
       jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
