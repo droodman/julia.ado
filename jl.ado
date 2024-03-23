@@ -1,4 +1,4 @@
-*! jl 0.10.1 6 March 2024
+*! jl 0.10.3 22 March 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -42,7 +42,7 @@ end
 cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
-  
+
   if `"$julia_loaded"' == "" {
     syntax, [threads(string)]
     if !inlist(`"`threads'"', "", "auto") {
@@ -333,3 +333,5 @@ end
 * 0.9.1  Reverted to complex syntax for C++ variable copying routines, to avoid limit on # of vars
 * 0.10.0 Full support for Stata data types, including strings. Map CategoricalVector's to data labels. Add use and save commands.
 * 0.10.1 Fixed memory leak
+* 0.10.2 threads() option on start
+* 0.10.3 Bug fix for 0.10.2

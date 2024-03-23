@@ -234,18 +234,19 @@ STDLL stata_call(int argc, char* argv[])
             if (load_julia(argv[1], argv[2]))
                 return 998;
 
-            if (argv[3]) {
+            if (argc > 3) {
                 int ac = 2;
                 char** av = (char**)malloc(sizeof(char*) * ac);
                 av[0] = 0;
-                av[1] = (char*)("--threads=" + string(argv[3])).c_str();
+                string s = "--threads=" + string(argv[3]);
+                av[1] = (char*) s.c_str();
                 JL_parse_opts(&ac, &av);
             }
 
             JL_init();
 
             JL_eval("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
-            
+
             int8max = numeric_limits<int8_t>::max();
             int16max = numeric_limits<int16_t>::max();
             int32max = numeric_limits<int32_t>::max();
@@ -351,33 +352,33 @@ STDLL stata_call(int argc, char* argv[])
                 touse = NULL;
             }
 
-            if (nobs) {
-                void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
-                int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
-                if (*argv[2]) {
-                    ST_int maxlen = strlen(argv[2]) + 1;
-                    char* dfcmd = (char*)malloc(maxlen + 20);
-                    snprintf(dfcmd, maxlen + 20, argv[2], nobs);
-                    JL_eval(dfcmd);  // construct and allocate DataFrame
-                    free(dfcmd);
+            void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
+            int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
+            if (*argv[2]) {
+                ST_int maxlen = strlen(argv[2]) + 1;
+                char* dfcmd = (char*)malloc(maxlen + 20);
+                snprintf(dfcmd, maxlen + 20, argv[2], nobs);
+                JL_eval(dfcmd);  // construct and allocate DataFrame
+                free(dfcmd);
 
-                    for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because something in this not thread safe
-                        string colname = dfname + "[!," + to_string(i + 1) + "]";
-                        string eltype = "eltype(" + colname + ")";
-                        types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
-                        pxs[i] = (void*)JL_eval(colname);
-                        if (types[i] != 7)
-                            pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
-                    }
-                } else {  // double-only mode
-                    double* _px = (double*)jl_array_data(JL_eval("stataplugininterface.x = Matrix{Float64}(undef, " + to_string(nobs) + "," + to_string(SF_nvars()) + ");" + dfname + "= DataFrame(stataplugininterface.x, :auto, copycols = false); stataplugininterface.x"));
-                    for (ST_int i = 0; i < SF_nvars(); i++) {
-                        pxs[i] = _px;
-                        _px += nobs;
-                        types[i] = 6;
-                    }
+                for (ST_int i = 0; i < SF_nvars(); i++) {  // get pointers to & types of destination columns w/o multithreading because something in this not thread safe
+                    string colname = dfname + "[!," + to_string(i + 1) + "]";
+                    string eltype = "eltype(" + colname + ")";
+                    types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
+                    pxs[i] = (void*)JL_eval(colname);
+                    if (types[i] != 7)
+                        pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
                 }
+            } else {  // double-only mode
+                double* _px = (double*)jl_array_data(JL_eval("stataplugininterface.x = Matrix{Float64}(undef, " + to_string(nobs) + "," + to_string(SF_nvars()) + ");" + dfname + "= DataFrame(stataplugininterface.x, :auto, copycols = false); stataplugininterface.x"));
+                for (ST_int i = 0; i < SF_nvars(); i++) {
+                    pxs[i] = _px;
+                    _px += nobs;
+                    types[i] = 6;
+                }
+            }
 
+            if (nobs) {
 #if SYSTEM==APPLEMAC
                 dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
 #else
