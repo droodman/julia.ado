@@ -148,7 +148,6 @@ jl_value_t* JL_eval(string cmd) {
     throw "Command line failed:\n" + cmd + "\n";
 }
 
-
 template <typename T>
 void copytodf(char* touse, ST_int i, T* px, T missval, char nomissing) {
     double val;
@@ -228,7 +227,7 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "start": initiate Julia instance
         // argv[1] = full path to libjulia
-        // argv[2] = directory part of argv[1], Windows only
+        // argv[2] = directory part of argv[1]; should always be supplied but is used in Windows only
         // argv[3] = optional: --threads= argument value (number as a string or "auto")
         if (!strcmp(argv[0], "start")) {
             if (load_julia(argv[1], argv[2]))
@@ -347,11 +346,12 @@ STDLL stata_call(int argc, char* argv[])
                 char* tousej = touse;
                 for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                     nobs += (*tousej++ = (char)SF_ifobs(j));
+                if (nobs == SF_nobs())
+                    touse = NULL;
             } else {
                 nobs = SF_in2() - SF_in1() + 1;
                 touse = NULL;
             }
-
             void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
             int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
             if (*argv[2]) {
@@ -407,32 +407,47 @@ STDLL stata_call(int argc, char* argv[])
                 }
 #endif
 
-        for (ST_int i = 0; i < SF_nvars(); i++)  // string var copying not thread-safe
-		 	if (types[i]==7) {
-                char* _tousej = touse;
-                ST_int ip1 = i + 1;
-                int64_t k = 1;
-                ST_int len;
+            for (ST_int i = 0; i < SF_nvars(); i++)  // string var copying not thread-safe
+		 	    if (types[i]==7) {
+                    ST_int ip1 = i + 1;
+                    int64_t k = 1;
+                    ST_int len;
 
-                if (SF_var_is_strl(ip1)) {
-                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                        if (*_tousej++) {
-                            len = SF_sdatalen(ip1, j);
-                            char* val = (char*)malloc((len + 1) * sizeof(char));
-                            SF_strldata(ip1, j, val, len + 1);
-                            JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                            free(val);
-                        }
+                    if (SF_var_is_strl(ip1))
+                        if (touse) {
+                            char* _tousej = touse;
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++) {
+                                    len = SF_sdatalen(ip1, j);
+                                    char* val = (char*)malloc((len + 1) * sizeof(char));
+                                    SF_strldata(ip1, j, val, len + 1);
+                                    JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe?
+                                    free(val);
+                                }
+                        } else
+                           for (ST_int j = 1; j <= SF_nobs(); j++) {
+                                len = SF_sdatalen(ip1, j);
+                                char* val = (char*)malloc((len + 1) * sizeof(char));
+                                SF_strldata(ip1, j, val, len + 1);
+                                JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), JL_box_int64(k++));  // GC-unsafe?
+                                free(val);
+                           }
+                    else {  // regular string
+                        char val[2046];
+                        if (touse) {
+                            char* _tousej = touse;
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++) {
+                                    SF_sdata(ip1, j, val);
+                                    JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe?
+                                }
+                        } else
+                            for (ST_int j = 1; j <= SF_nobs(); j++) {
+                                SF_sdata(ip1, j, val);
+                                JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe?
+                            }
+                    }
                 }
-                else {  // regular string
-                    char val[2046];
-                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                        if (*_tousej++) {
-                            SF_sdata(ip1, j, val);
-                            JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe, especially if multithreading?
-                        }
-                }
-            }
 
             free(types);
             free(pxs);

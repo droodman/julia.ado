@@ -63,6 +63,7 @@ program define assure_julia_started
 
       di as txt `"Starting Julia `=cond(`"`threads'"'!="", "with threads=`threads'", "")'"'
       mata displayflush() 
+
       plugin call _julia, start "`libpath'/`libname'" "`libpath'" `threads'
     }
     if _rc {
@@ -189,7 +190,9 @@ program define jl, rclass
       }
       else local types = "double " * `ncols'
       if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
-      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"'
+
+      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"' "'
+
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
       if "`doubleonly'"!="" jl, qui: rename!(`destination', vec(split("`cols'")))
       else if "`label'"=="" {
@@ -313,7 +316,6 @@ program define display_multiline
   }
   di `"`s'"'
 end
-
 
 * Version history
 * 0.5.0  Initial commit
