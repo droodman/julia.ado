@@ -294,9 +294,10 @@ STDLL stata_call(int argc, char* argv[])
                         SF_macro_save((char*)"___jlcomplete", (char*)"0");
                     else {
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
-                        if (noisily)
-                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), begin (ans = " + session + ") end); String(take!(_Stata_io))")));
-                        else
+                        if (noisily) {
+                            JL_eval("ans = " + session);
+                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("display(ans); show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
+                        } else
                             JL_eval("begin (" + session + "); 0 end");
                     }
                 }

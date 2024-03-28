@@ -328,7 +328,7 @@ program define jlcmd, rclass
       }
       if "`quietly'"=="" plugin call _julia, eval fetch(stataplugininterface.julia_task)
     }
-    else plugin call _julia `varlist', eval`=cond("`quietly'"!="","qui","")' `"`__jlcmd'"'
+    else plugin call _julia `varlist', eval`=cond("`quietly'"!="" | substr(`"`__jlcmd'"',strlen(`"`__jlcmd'"'),1)==";","qui","")' `"`__jlcmd'"'
 
     if !`__jlcomplete' di as txt "  .." _request(___jlcmd)  // (plugin overwrites `__jlcomplete')
     if strtrim(`"`__jlcmd'"')=="exit()" {
