@@ -59,6 +59,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
     jl_value_t* (*jl_eval_string)(const char*);
     void (*jl_init)(void);
     void (*jl_atexit_hook)(int);
+    int8_t (*jl_unbox_bool)(jl_value_t*);
     float (*jl_unbox_float32)(jl_value_t*);
     double (*jl_unbox_float64)(jl_value_t*);
     int64_t (*jl_unbox_int64)(jl_value_t*);
@@ -75,6 +76,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_eval_string        julia_fptrs.jl_eval_string
 #define JL_init               julia_fptrs.jl_init
 #define JL_atexit_hook        julia_fptrs.jl_atexit_hook
+#define JL_unbox_bool         julia_fptrs.jl_unbox_bool
 #define JL_unbox_int64        julia_fptrs.jl_unbox_int64
 #define JL_unbox_float32      julia_fptrs.jl_unbox_float32
 #define JL_unbox_float64      julia_fptrs.jl_unbox_float64
@@ -86,6 +88,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_box_int64          julia_fptrs.jl_box_int64
 #define JL_pchar_to_string    julia_fptrs.jl_pchar_to_string
 #define JL_parse_opts         julia_fptrs.jl_parse_opts
+#define JL_get_field          julia_fptrs.jl_get_field
 
 #if SYSTEM==STWIN32
 #include "windows.h"
@@ -114,6 +117,7 @@ int load_julia(const char* fulllibpath, const char* libdir) {
     JL_eval_string = (jl_value_t * (*)(const char*))GetProcAddress(hDLL, "jl_eval_string");
     JL_init = (void (*)(void))GetProcAddress(hDLL, "jl_init");
     JL_atexit_hook = (void (*)(int))GetProcAddress(hDLL, "jl_atexit_hook");
+    JL_unbox_bool = (int8_t (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_bool");
     JL_unbox_float32 = (float (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_float32");
     JL_unbox_float64 = (double (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_float64");
     JL_unbox_int64 = (int64_t (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_int64");
@@ -131,6 +135,7 @@ int load_julia(const char* fulllibpath, const char* libdir) {
 
 
 jl_value_t* JL_eval(string cmd) {
+
     jl_value_t* ret = JL_eval_string(cmd.c_str());
     JL_gc_enable(0);
     if (jl_value_t* ex = JL_exception_occurred()) {
@@ -214,8 +219,10 @@ int32_t int32max;
 int64_t int64max;
 float NaN32;
 double NaN64;
-jl_function_t* setindex;
-jl_function_t* getindex;
+jl_function_t *setindex, *getindex, *parse;
+string session = "";  // accumulator for multiline commands
+string command = "";  // accumulator for single commands potentially spread across multiple lines, whcih shouldn't have ;'s spliced in
+int8_t session_incomplete=0, command_incomplete=0;
 
 // Stata entry point
 STDLL stata_call(int argc, char* argv[])
@@ -225,6 +232,12 @@ STDLL stata_call(int argc, char* argv[])
     try {
         char nomissing;
 
+        // argv[0] = "reset": restart parsing context
+        if (!strcmp(argv[0], "reset")) {
+            session_incomplete = command_incomplete = 0;
+            return 0;
+        }
+
         // argv[0] = "start": initiate Julia instance
         // argv[1] = full path to libjulia
         // argv[2] = directory part of argv[1]; should always be supplied but is used in Windows only
@@ -233,14 +246,16 @@ STDLL stata_call(int argc, char* argv[])
             if (load_julia(argv[1], argv[2]))
                 return 998;
 
+            int ac = 2;
+            char** av = (char**)malloc(sizeof(char*) * 3);
+            av[0] = 0;
+            av[1] = (char*)"-i";
             if (argc > 3) {
-                int ac = 2;
-                char** av = (char**)malloc(sizeof(char*) * ac);
-                av[0] = 0;
                 string s = "--threads=" + string(argv[3]);
-                av[1] = (char*) s.c_str();
-                JL_parse_opts(&ac, &av);
+                av[2] = (char*)s.c_str();
+                ac++;
             }
+            JL_parse_opts(&ac, &av);
 
             JL_init();
 
@@ -254,7 +269,7 @@ STDLL stata_call(int argc, char* argv[])
             NaN64 = JL_unbox_float64(JL_eval("NaN64"));
             setindex = (jl_function_t*)JL_eval("Base.setindex!");
             getindex = (jl_function_t*)JL_eval("Base.getindex");
-
+            parse = (jl_function_t*)JL_eval("Meta.parse");
             return 0;
         }
 
@@ -265,19 +280,27 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "eval": evaluate a Julia expression and return plaintext response in Stata local "ans"; slow if the return value is, e.g., a large array
+        // argv[0] = "eval" or "evalqui": evaluate a Julia expression and return plaintext response in Stata local "ans"; slow if the return value is, e.g., a large array
         // argv[1] = expression
-        if (!strcmp(argv[0], "eval")) {
-            if (argc > 1)
-                SF_macro_save((char*)"_ans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), begin (" + string(argv[1]) + ") end); String(take!(_Stata_io))")));
-            return 0;
-        }
-
-        // argv[0] = "evalqui": evaluate a Julia expression but for speed return no response
-        // argv[1] = expression
-        if (!strcmp(argv[0], "evalqui")) {
-            if (argc > 1)
-                JL_eval("begin (" + string(argv[1]) +"); 0 end");
+        int8_t noisily = strcmp(argv[0], "evalqui");
+        if (!noisily || !strcmp(argv[0], "eval")) {
+            if (argc > 1) {
+                command = command_incomplete? command + " " + string(argv[1]) : string(argv[1]);
+                if (command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\"" + command + "\"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
+                    SF_macro_save((char*)"___jlcomplete", (char*)"0");
+                else {
+                    session = session_incomplete ? session + "; " + command : command;
+                    if (session_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\"" + session + "\"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
+                        SF_macro_save((char*)"___jlcomplete", (char*)"0");
+                    else {
+                        SF_macro_save((char*)"___jlcomplete", (char*)"1");
+                        if (noisily)
+                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), begin (ans = " + session + ") end); String(take!(_Stata_io))")));
+                        else
+                            JL_eval("begin (" + session + "); 0 end");
+                    }
+                }
+            }
             return 0;
         }
 

@@ -11,7 +11,7 @@
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 * GNU General Public License for more details.
 
-* You should have received a copy of the GNU General Public License
+* You should have received a copy of the GNU General Public Licensejl
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 * Version history at bottom
@@ -104,12 +104,12 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 0.10.0
+    return local version 0.10.3
     exit
   }
 
   cap _on_colon_parse `0'
-  if _rc {
+  if _rc & `"`0'"'!="" {
     tokenize `"`0'"', parse(" ,")
     local cmd `1'
     macro shift
@@ -132,7 +132,8 @@ program define jl, rclass
     
     assure_julia_started
     
-    if `"`cmd'"'=="SetEnv" {
+    if `"`cmd'"'=="reset" plugin call _julia, reset
+    else if `"`cmd'"'=="SetEnv" {
       jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
       jl AddPkg DataFrames
       jl AddPkg CategoricalArrays
@@ -277,31 +278,59 @@ program define jl, rclass
   }
   else {  // "jl: ..."
     local after = `"`s(after)'"'
-    local 0 `"`s(before)'"'
-    syntax, [QUIetly INTERruptible]
+    local before `"`s(before)'"'
     local varlist = cond(c(k),"*","")
     assure_julia_started
+    jlcmd `before': `after'
+  }
 
-    if "`interruptible'" != "" {  // Run Julia 1 sec at a time to allow Ctrl-Break, checking if task finished every .01 sec
-      plugin   call _julia `varlist', evalqui `"stataplugininterface.julia_task = @async (`after')"'
-      plugin   call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
-      while `ans' {
-        plugin call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
-      }
-      if "`quietly'"=="" plugin call _julia, eval fetch(stataplugininterface.julia_task)
-    }
-    else plugin call _julia `varlist', eval`=cond("`quietly'"!="","qui","")' `"`after'"'
-
-    if "`quietly'"=="" {
-      return local ans: copy local ans
-      cap noi local ans `ans'  // strips quote marks
-      cap noi if `"`ans'"' != "nothing" display_multiline `ans'
-    }
+  foreach macro in `r(locals)' {
+    c_local `macro': copy local `macro'
   }
   return local ans: copy local ans
 end
 
-program _julia, plugin using(jl.plugin)
+cap program drop jlcmd
+program define jlcmd
+  cap _on_colon_parse `0'
+  local __jlcmd `"`s(after)'"'
+  local 0 `"`s(before)'"'
+  syntax, [QUIetly INTERruptible]
+
+  jl reset  // clear any previous command lines
+
+  local __jlcomplete 0
+  while !`__jlcomplete' {
+    local __jlcomplete 1
+
+    if "`interruptible'" != "" {  // Run Julia 1 sec at a time to allow Ctrl-Break, checking if task finished every .01 sec
+      plugin   call _julia `varlist', evalqui `"stataplugininterface.julia_task = @async (`__jlcmd')"'
+      local __jlans 1
+      while `__jlans' {
+        plugin call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
+      }
+      if "`quietly'"=="" plugin call _julia, eval fetch(stataplugininterface.julia_task)
+    }
+    else plugin call _julia `varlist', eval`=cond("`quietly'"!="","qui","")' `"`__jlcmd'"'
+    
+    if !`__jlcomplete' di as txt "  .." _request(___jlcmd)  // (plugin overwrites `__jlcomplete')
+    tokenize `"`__jlcmd'"'
+    if `"`*'"'=="end" exit
+  }
+
+  if "`quietly'"=="" {
+    c_local ans: copy local __jlans
+    cap noi local __jlans `__jlans'  // strips quote marks
+    cap noi if `"`__jlans'"' != "nothing" display_multiline `__jlans'
+  }
+  
+  c_local locals: copy local __jllocals
+  foreach macro in `__jllocals' {
+    c_local `macro': copy local `macro'
+  }
+end
+
+program _julia, plugin using(D:\OneDrive\Documents\Macros\julia.ado\jl.pluginWIN64.dll)
 
 * properly print a string with newlines
 program define display_multiline

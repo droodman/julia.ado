@@ -113,6 +113,19 @@ Stores val as the [i,j] element of Stata matrix mat. Returns a nonzero return co
 SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real) = begin rc = @ccall dllpath[].jlSF_mat_store(mat::Cstring, i::Cint, j::Cint, val::Cdouble)::Cint; rc!=0 && throw(rc); nothing end
 
 """
+    SF_local_save(mac::AbstractString, tosave::AbstractString)
+
+Creates/recreates a Stata local macro named by mac and stores tosave in it. Returns a nonzero return code on error.
+"""
+function SF_local_save(mac::AbstractString, tosave::AbstractString)
+    rc = @ccall dllpath[].jlSF_macro_save(mac::Cstring, tosave::Cstring)::Cint
+    rc!=0 && throw(rc)
+    mac ∉ Set{String}("___jlans","___jlcomplete") &&
+        SF_local_save("_locals", SF_macro_use("_locals", 15_480_200) * " " * mac)  # add to Stata local "locals"
+    nothing
+end
+
+"""
     SF_macro_save(mac::AbstractString, tosave::AbstractString)
 
 Creates/recreates a Stata macro named by mac and stores tosave in it. Returns a nonzero return code on error.
@@ -230,5 +243,4 @@ function NaN2missing(df::DataFrame)
         t<:Number && replace!(x, (t<:Integer ? typemax(t) : t==Float32 ? NaN32 : reinterpret(Float64, 0x7fe0000000000000)) => missing)
     end
 end
-
 end
