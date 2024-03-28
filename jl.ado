@@ -281,17 +281,34 @@ program define jl, rclass
     local before `"`s(before)'"'
     local varlist = cond(c(k),"*","")
     assure_julia_started
-    jlcmd `before': `after'
+    if `"`after'"' != "" {
+      jlcmd `before': `after'
+      foreach macro in `locals' {
+        c_local `macro': copy local `macro'
+      }
+    }
+    else {
+      display as txt "{hline 48} Julia (type {cmd:exit()} to exit) {hline}"
+      while 1 {
+        di as res "jl> " _request(_cmdline)
+        if strtrim(`"`cmdline'"')=="exit()" {
+          di as txt "{hline}"
+          continue, break
+        }
+        cap noi jlcmd `before': `cmdline'
+        if 0`r(exit)' continue, break
+        foreach macro in `locals' {
+          c_local `macro': copy local `macro'
+        }
+      }
+    }
   }
 
-  foreach macro in `r(locals)' {
-    c_local `macro': copy local `macro'
-  }
   return local ans: copy local ans
 end
 
 cap program drop jlcmd
-program define jlcmd
+program define jlcmd, rclass
   cap _on_colon_parse `0'
   local __jlcmd `"`s(after)'"'
   local 0 `"`s(before)'"'
@@ -312,10 +329,12 @@ program define jlcmd
       if "`quietly'"=="" plugin call _julia, eval fetch(stataplugininterface.julia_task)
     }
     else plugin call _julia `varlist', eval`=cond("`quietly'"!="","qui","")' `"`__jlcmd'"'
-    
+
     if !`__jlcomplete' di as txt "  .." _request(___jlcmd)  // (plugin overwrites `__jlcomplete')
-    tokenize `"`__jlcmd'"'
-    if `"`*'"'=="end" exit
+    if strtrim(`"`__jlcmd'"')=="exit()" {
+      return local exit 1
+      exit
+    }
   }
 
   if "`quietly'"=="" {
@@ -330,7 +349,7 @@ program define jlcmd
   }
 end
 
-program _julia, plugin using(D:\OneDrive\Documents\Macros\julia.ado\jl.pluginWIN64.dll)
+program _julia, plugin using(jl.plugin)
 
 * properly print a string with newlines
 program define display_multiline
