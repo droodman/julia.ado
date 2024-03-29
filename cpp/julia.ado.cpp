@@ -246,19 +246,19 @@ STDLL stata_call(int argc, char* argv[])
             if (load_julia(argv[1], argv[2]))
                 return 998;
 
-            int ac = 2;
-            char** av = (char**)malloc(sizeof(char*) * 3);
+            int ac = 1;
+            char** av = (char**)malloc(sizeof(char*) * 2);
             av[0] = 0;
-            av[1] = (char*)"-i";
             if (argc > 3) {
                 string s = "--threads=" + string(argv[3]);
-                av[2] = (char*)s.c_str();
+                av[1] = (char*)s.c_str();
                 ac++;
             }
             JL_parse_opts(&ac, &av);
 
             JL_init();
 
+            JL_eval("using REPL");
             JL_eval("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
 
             int8max = numeric_limits<int8_t>::max();
@@ -295,10 +295,10 @@ STDLL stata_call(int argc, char* argv[])
                     else {
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
                         if (noisily) {
-                            JL_eval("ans = " + session);
+                            JL_eval("ans = eval(REPL.softscope(Meta.parse(raw\"\"\"" + session + "\"\"\")))");
                             SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("display(ans); show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
                         } else
-                            JL_eval("begin (" + session + "); 0 end");
+                            JL_eval("eval(REPL.softscope(Meta.parse(raw\"\"\"" + session + "\"\"\")))");
                     }
                 }
             }
@@ -307,13 +307,27 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "PutVarsToMat": put vars in a new Julia Matrix{Float64}, converting Stata pmissings to NaN (not Julia missing)
         // argv[1] = Julia matrix name; any existing matrix of that name will be overwritten
+        // argv[2] = null string for full sample copy (no if/in clause)
         nomissing = !strcmp(argv[0], "PutVarsToMatnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToMat")) {
-            ST_int nobs = 0;
-            char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
-            char* tousej = touse;
-            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                nobs += (*tousej++ = (char)SF_ifobs(j));
+            ST_int nobs;
+            char* touse;
+
+            if (*argv[2]) {
+                nobs = 0;
+                touse = (char*)malloc(SF_in2() - SF_in1() + 1);
+                char* tousej = touse;
+                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                    nobs += (*tousej++ = (char)SF_ifobs(j));
+                if (nobs == SF_nobs()) {
+                    free(touse);
+                    touse = NULL;
+                }
+            }
+            else {
+                nobs = SF_nobs();
+                touse = NULL;
+            }
 
             jl_value_t* X = JL_eval(string(argv[1]) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ")");  // no more Julia calls till we're done with X, so GC-safe
             double* px = (double*)jl_array_data(X);
@@ -327,37 +341,49 @@ STDLL stata_call(int argc, char* argv[])
                 for (ST_int i = 0; i < SF_nvars(); i++)
 #endif
                 {
-                    char* _tousej = touse;
                     ST_int ip1 = i + 1;
                     double* pxj = px + i * nobs;
 
-                    if (nomissing) {
-                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                            if (*_tousej++)
-                                SF_vdata(ip1, j, pxj++);
-                    }
+                    if (touse) {
+                        char* _tousej = touse;
+                        if (nomissing) {
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++)
+                                    SF_vdata(ip1, j, pxj++);
+                        }
+                        else
+                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                                if (*_tousej++) {
+                                    SF_vdata(ip1, j, pxj);
+                                    if (SF_is_missing((ST_double)*pxj))
+                                        *pxj = NaN64;
+                                    pxj++;
+                                }
+                    } else if (nomissing)
+                        for (ST_int j = 1; j <= nobs; j++)
+                            SF_vdata(ip1, j, pxj++);
                     else
-                        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                            if (*_tousej++) {
-                                SF_vdata(ip1, j, pxj);
-                                if (SF_is_missing((ST_double)*pxj))
-                                    *pxj = NaN64;
-                                pxj++;
-                            }
+                        for (ST_int j = 1; j <= nobs; j++) {
+                            SF_vdata(ip1, j, pxj);
+                            if (SF_is_missing((ST_double)*pxj))
+                                *pxj = NaN64;
+                            pxj++;
+                        }
+
                 }
 #if SYSTEM==APPLEMAC
                 );
 #else
             }
 #endif
-            free(touse);
+            if (touse) free(touse);
             return 0;
         }
 
         // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
         // argv[2] = DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
-        // argv[3] = null string for full sample copy (no if or in clause)
+        // argv[3] = null string for full sample copy (no if/in clause)
         nomissing = !strcmp(argv[0], "PutVarsToDFnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToDF")) {
             string dfname = string(argv[1]);
@@ -370,10 +396,12 @@ STDLL stata_call(int argc, char* argv[])
                 char* tousej = touse;
                 for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                     nobs += (*tousej++ = (char)SF_ifobs(j));
-                if (nobs == SF_nobs())
+                if (nobs == SF_nobs()) {
+                    free(touse);
                     touse = NULL;
+                }
             } else {
-                nobs = SF_in2() - SF_in1() + 1;
+                nobs = SF_nobs();
                 touse = NULL;
             }
             void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
@@ -449,7 +477,7 @@ STDLL stata_call(int argc, char* argv[])
                                     free(val);
                                 }
                         } else
-                           for (ST_int j = 1; j <= SF_nobs(); j++) {
+                           for (ST_int j = 1; j <= nobs; j++) {
                                 len = SF_sdatalen(ip1, j);
                                 char* val = (char*)malloc((len + 1) * sizeof(char));
                                 SF_strldata(ip1, j, val, len + 1);
@@ -466,7 +494,7 @@ STDLL stata_call(int argc, char* argv[])
                                     JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe?
                                 }
                         } else
-                            for (ST_int j = 1; j <= SF_nobs(); j++) {
+                            for (ST_int j = 1; j <= nobs; j++) {
                                 SF_sdata(ip1, j, val);
                                 JL_call3(setindex, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), JL_box_int64(k++));  // GC-unsafe?
                             }
@@ -478,7 +506,7 @@ STDLL stata_call(int argc, char* argv[])
             if (!*argv[2])
                 JL_eval("stataplugininterface.x = nothing");
         }
-        free(touse);
+        if (touse) free(touse);
         return 0;
     }
         // argv[0] = "GetVarsFromDF","GetVarsFromDFnomissing": copy from Julia DataFrame into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing

@@ -1,7 +1,7 @@
 # see also https://www.stata.com/plugins
 
 module stataplugininterface
-export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_scal_save, SF_display, SF_error, SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, SF_varindex
+export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_local_save, SF_scal_save, SF_display, SF_error, SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, SF_varindex
 
 using DataFrames, CategoricalArrays
 
@@ -73,7 +73,8 @@ SF_col(mat::AbstractString) = @ccall dllpath[].jlSF_col(mat::Cstring)::Cint
 
 """
     SF_row(mat::AbstractString)
-returns the number of rows of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
+
+Returns the number of rows of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
 """
 SF_row( mat::AbstractString) = @ccall dllpath[].jlSF_row(mat::Cstring)::Cint
 
@@ -108,34 +109,38 @@ SF_sstore(i::Int, j::Int, s::AbstractString) = begin rc = @ccall dllpath[].jlSF_
 """
     SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real)
 
-Stores val as the [i,j] element of Stata matrix mat. Returns a nonzero return code if an error is encountered.
+Stores val as the [i,j] element of Stata matrix mat.
 """
 SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real) = begin rc = @ccall dllpath[].jlSF_mat_store(mat::Cstring, i::Cint, j::Cint, val::Cdouble)::Cint; rc!=0 && throw(rc); nothing end
 
 """
     SF_local_save(mac::AbstractString, tosave::AbstractString)
 
-Creates/recreates a Stata local macro named by mac and stores tosave in it. Returns a nonzero return code on error.
+Creates/recreates a Stata local macro named by mac and stores tosave in it.
 """
 function SF_local_save(mac::AbstractString, tosave::AbstractString)
-    rc = @ccall dllpath[].jlSF_macro_save(mac::Cstring, tosave::Cstring)::Cint
+    rc = @ccall dllpath[].jlSF_macro_save(("_"*mac)::Cstring, tosave::Cstring)::Cint
     rc!=0 && throw(rc)
-    mac ∉ Set{String}("___jlans","___jlcomplete") &&
-        SF_local_save("_locals", SF_macro_use("_locals", 15_480_200) * " " * mac)  # add to Stata local "locals"
+    mac ∉ Set(("___jlans","___jlcomplete")) &&
+        SF_macro_save("___jllocals", SF_macro_use("___jllocals", 15_480_200) * " " * mac)  # add to Stata local "locals"
     nothing
 end
 
 """
     SF_macro_save(mac::AbstractString, tosave::AbstractString)
 
-Creates/recreates a Stata macro named by mac and stores tosave in it. Returns a nonzero return code on error.
+Creates/recreates a Stata macro named by mac and stores tosave in it.
 """
-SF_macro_save(mac::AbstractString, tosave::AbstractString) = begin rc = @ccall dllpath[].jlSF_macro_save(mac::Cstring, tosave::Cstring)::Cint; rc!=0 && throw(rc); nothing end
+function SF_macro_save(mac::AbstractString, tosave::AbstractString)
+    rc = @ccall dllpath[].jlSF_macro_save(mac::Cstring, tosave::Cstring)::Cint
+    rc!=0 && throw(rc)
+    nothing
+end
 
 """
     SF_scal_save(scal::AbstractString, val::Real)
 
-Creates/recreates a Stata scalar named by scal and stores val in it. Returns a nonzero return code on error.
+Creates/recreates a Stata scalar named by scal and stores val in it.
 """
 SF_scal_save(scal::AbstractString, val::Real) = begin rc = @ccall dllpath[].jlSF_scal_save(scal::Cstring, val::Cdouble)::Cint; rc!=0 && throw(rc); nothing end
 
@@ -192,18 +197,20 @@ SF_mat_el(mat::AbstractString, i::Int, j::Int) =
       z[] 
   end
 
+
 """
     SF_macro_use(mac::AbstractString, maxlen::Int)
 
-Returns the first maxlen characters of Stata macro mac. Local macros can be accessed prefixing their names with "_".
+Returns the Stata global macro mac. Optional maxlen argument limits length.
 """
-SF_macro_use(mac::AbstractString, maxlen::Int) =
+SF_macro_use(mac::AbstractString, maxlen::Int=15_480_200) =
   begin 
       s = pointer(Vector{Int8}(undef,maxlen+1))
       rc=@ccall dllpath[].jlSF_macro_use(mac::Cstring, s::Cstring, maxlen::Cint)::Cint 
       rc!=0 && throw(rc)
       GC.@preserve s unsafe_string(Cstring(s)) 
   end
+
 
 """
     SF_scal_use(scal::AbstractString)

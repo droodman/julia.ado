@@ -133,10 +133,18 @@ program define jl, rclass
     assure_julia_started
     
     if `"`cmd'"'=="reset" plugin call _julia, reset
-    else if `"`cmd'"'=="SetEnv" {
-      jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
-      jl AddPkg DataFrames
-      jl AddPkg CategoricalArrays
+    else if inlist(`"`cmd'"',"SetEnv","GetEnv") {
+      if "`cmd'"=="SetEnv" {
+        jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
+        jl AddPkg DataFrames
+        jl AddPkg CategoricalArrays
+      }
+      jl: SF_local_save("env", splitpath(Base.active_project())[end-1])
+      jl: SF_local_save("envdir", dirname(Base.active_project()))
+      jl: SF_local_save("default", dirname(Base.load_path_expand("@v#.#")))
+      di as txt "Current package environment: `env'`=cond("`envdir'"=="`default'"," (default)","")', at `envdir'"
+      return local env: copy local env
+      return local envdir: copy local envdir
     }
     else if `"`cmd'"'=="AddPkg" {
       syntax name, [MINver(string)]
@@ -192,7 +200,7 @@ program define jl, rclass
       else local types = "double " * `ncols'
       if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
 
-      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"' "'
+      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"'
 
       if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
       if "`doubleonly'"!="" jl, qui: rename!(`destination', vec(split("`cols'")))
@@ -215,12 +223,14 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="save" {
       syntax [namelist(max=1)], [NOLABel DOUBLEonly NOMISSing]
+      if "`namelist'"=="" local namelist df
       jl PutVarsToDF, dest(`namelist') `nolabel' `doubleonly' `nomissing'
+      di as txt "Data saved to DataFrame `namelist' in Julia"
     }
     else if `"`cmd'"'=="PutVarsToMat" {
       syntax [varlist] [if] [in], DESTination(string) [noMISSing]
       confirm names `destination'
-      plugin call _julia `varlist' `if' `in', `cmd'`missing' `"`destination'"'
+      plugin call _julia `varlist' `if' `in', `cmd'`missing' `"`destination'"' `"`if'`in'"'
     }
     else if `"`cmd'"'=="GetVarsFromMat" {
       syntax namelist [if] [in], source(string asis) [replace]
@@ -250,8 +260,8 @@ program define jl, rclass
         cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
         qui jl: Int(`source'.`col' isa CategoricalVector)
         if `r(ans)' {
-          qui jl: join([string(i) * " \"" * l * "\"" for (i,l) in enumerate(levels(`source'.`col'))], " ")
-          label define `name' `=subinstr(`"`r(ans)'"', `"\""', `"""', .)', replace
+          jl: SF_local_save("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "));
+          label define `name' `=subinstr(`"`labeldef'"', "%", `"""', .)', replace
           label values `name' `name'
         }
       }
@@ -291,7 +301,9 @@ program define jl, rclass
       display as txt "{hline 48} Julia (type {cmd:exit()} to exit) {hline}"
       while 1 {
         di as res "jl> " _request(_cmdline)
-        if strtrim(`"`cmdline'"')=="exit()" {
+        local cmdline = strtrim(`"`cmdline'"')
+        if `"`cmdline'"'=="" continue
+        if `"`cmdline'"'=="exit()" {
           di as txt "{hline}"
           continue, break
         }
@@ -313,6 +325,7 @@ program define jlcmd, rclass
   local __jlcmd `"`s(after)'"'
   local 0 `"`s(before)'"'
   syntax, [QUIetly INTERruptible]
+  local noisily = "`quietly'"=="" & substr(`"`__jlcmd'"', strlen(`"`__jlcmd'"'), 1) != ";"  // also suppress output if command ends with ";"
 
   jl reset  // clear any previous command lines
 
@@ -326,9 +339,9 @@ program define jlcmd, rclass
       while `__jlans' {
         plugin call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
       }
-      if "`quietly'"=="" plugin call _julia, eval fetch(stataplugininterface.julia_task)
+      if `noisily' plugin call _julia, eval fetch(stataplugininterface.julia_task)
     }
-    else plugin call _julia `varlist', eval`=cond("`quietly'"!="" | substr(`"`__jlcmd'"',strlen(`"`__jlcmd'"'),1)==";","qui","")' `"`__jlcmd'"'
+    else plugin call _julia `varlist', eval`=cond(`noisily',"","qui")' `"`__jlcmd'"'
 
     if !`__jlcomplete' di as txt "  .." _request(___jlcmd)  // (plugin overwrites `__jlcomplete')
     if strtrim(`"`__jlcmd'"')=="exit()" {
@@ -337,7 +350,7 @@ program define jlcmd, rclass
     }
   }
 
-  if "`quietly'"=="" {
+  if `noisily' {
     c_local ans: copy local __jlans
     cap noi local __jlans `__jlans'  // strips quote marks
     cap noi if `"`__jlans'"' != "nothing" display_multiline `__jlans'
