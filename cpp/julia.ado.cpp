@@ -19,9 +19,11 @@ using namespace std;
 #if SYSTEM==STWIN32
 #define STDLL_int	extern "C" _declspec(dllexport) ST_int
 #define STDLL_bool	extern "C" _declspec(dllexport) ST_boolean
+#define STDLL_void	extern "C" _declspec(dllexport) void
 #else
 #define STDLL_int extern "C" ST_int
 #define STDLL_bool extern "C" ST_boolean
+#define STDLL_void extern "C" void
 #endif
 
 // wrappers for Stata interface entry points within this shared library, for Julia to find
@@ -224,6 +226,73 @@ string session = "";  // accumulator for multiline commands
 string command = "";  // accumulator for single commands potentially spread across multiple lines, whcih shouldn't have ;'s spliced in
 int8_t session_incomplete=0, command_incomplete=0;
 
+
+STDLL_void st_matrix(char* stmatname, char* jlmatname) {
+    ST_int nrows = SF_row(stmatname);
+    ST_int ncols = SF_col(stmatname);
+    jl_value_t* X = JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nrows) + "," + to_string(ncols) + ")");  // no more Julia calls till we're done with X, so GC-safe
+    double* px = (double*)jl_array_data(X);
+    for (ST_int i = 1; i <= ncols; i++)
+        for (ST_int j = 1; j <= nrows; j++) {
+            SF_mat_el(stmatname, j, i, px);
+            if (SF_is_missing((ST_double)*px))
+                *px = NaN64;
+            px++;
+        }
+}
+
+
+STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, char *touse, char* jlmatname, char nomissing) {
+    double* px = (double*)jl_array_data(JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(nvars) + ")"));
+
+    #if SYSTEM==APPLEMAC
+    dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
+    #else
+    #pragma omp parallel
+    {
+    #pragma omp for
+        for (ST_int _i = 0; _i < nvars; _i++)
+    #endif
+        {
+            ST_int i = varindexes[_i];
+            double* pxj = px + _i * nobs;
+
+            if (touse) {
+                char* _tousej = touse;
+                if (nomissing) {
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*_tousej++)
+                            SF_vdata(i, j, pxj++);
+                }
+                else
+                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                        if (*_tousej++) {
+                            SF_vdata(i, j, pxj);
+                            if (SF_is_missing((ST_double)*pxj))
+                                *pxj = NaN64;
+                            pxj++;
+                        }
+            }
+            else if (nomissing)
+                for (ST_int j = 1; j <= nobs; j++)
+                    SF_vdata(i, j, pxj++);
+            else
+                for (ST_int j = 1; j <= nobs; j++) {
+                    SF_vdata(i, j, pxj);
+                    if (SF_is_missing((ST_double)*pxj))
+                        *pxj = NaN64;
+                    pxj++;
+                }
+
+        }
+    #if SYSTEM==APPLEMAC
+        );
+    #else
+    }
+    #endif
+}
+
+
 // Stata entry point
 STDLL stata_call(int argc, char* argv[])
 {
@@ -286,19 +355,19 @@ STDLL stata_call(int argc, char* argv[])
         if (!noisily || !strcmp(argv[0], "eval")) {
             if (argc > 1) {
                 command = command_incomplete? command + " " + string(argv[1]) : string(argv[1]);
-                if (command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\"" + command + "\"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
+                if (command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + command + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
                     SF_macro_save((char*)"___jlcomplete", (char*)"0");
                 else {
                     session = session_incomplete ? session + "; " + command : command;
-                    if (session_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\"" + session + "\"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
+                    if (session_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + session + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
                         SF_macro_save((char*)"___jlcomplete", (char*)"0");
                     else {
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
                         if (noisily) {
-                            JL_eval("ans = eval(REPL.softscope(Meta.parse(raw\"\"\"" + session + "\"\"\")))");
+                            JL_eval("ans = eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
                             SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("display(ans); show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
                         } else
-                            JL_eval("eval(REPL.softscope(Meta.parse(raw\"\"\"" + session + "\"\"\")))");
+                            JL_eval("eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
                     }
                 }
             }
@@ -329,53 +398,11 @@ STDLL stata_call(int argc, char* argv[])
                 touse = NULL;
             }
 
-            jl_value_t* X = JL_eval(string(argv[1]) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(SF_nvars()) + ")");  // no more Julia calls till we're done with X, so GC-safe
-            double* px = (double*)jl_array_data(X);
+            ST_int *varindexes = (ST_int*)malloc(sizeof(ST_int) * SF_nvars());
+            for (ST_int i = 0; i < SF_nvars(); i++) varindexes[i] = i+1;  // copy all variables listed in plugin call before comma, indexed 1..SF_nvars()
+            st_data(varindexes, SF_nvars(), nobs, touse, argv[1], nomissing);
 
-#if SYSTEM==APPLEMAC
-            dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
-#else
-#pragma omp parallel
-            {
-#pragma omp for
-                for (ST_int i = 0; i < SF_nvars(); i++)
-#endif
-                {
-                    ST_int ip1 = i + 1;
-                    double* pxj = px + i * nobs;
-
-                    if (touse) {
-                        char* _tousej = touse;
-                        if (nomissing) {
-                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                if (*_tousej++)
-                                    SF_vdata(ip1, j, pxj++);
-                        }
-                        else
-                            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                                if (*_tousej++) {
-                                    SF_vdata(ip1, j, pxj);
-                                    if (SF_is_missing((ST_double)*pxj))
-                                        *pxj = NaN64;
-                                    pxj++;
-                                }
-                    } else if (nomissing)
-                        for (ST_int j = 1; j <= nobs; j++)
-                            SF_vdata(ip1, j, pxj++);
-                    else
-                        for (ST_int j = 1; j <= nobs; j++) {
-                            SF_vdata(ip1, j, pxj);
-                            if (SF_is_missing((ST_double)*pxj))
-                                *pxj = NaN64;
-                            pxj++;
-                        }
-
-                }
-#if SYSTEM==APPLEMAC
-                );
-#else
-            }
-#endif
+            free(varindexes);
             if (touse) free(touse);
             return 0;
         }
@@ -404,6 +431,7 @@ STDLL stata_call(int argc, char* argv[])
                 nobs = SF_nobs();
                 touse = NULL;
             }
+
             void** pxs = (void**)malloc(sizeof(void*) * SF_nvars());
             int64_t* types = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
             if (*argv[2]) {
@@ -666,27 +694,13 @@ STDLL stata_call(int argc, char* argv[])
         // argv[1] = Stata matrix name
         // argv[2] = Julia destination matrix; any existing matrix of that name will be overwritten
         if (!strcmp(argv[0], "PutMatToMat")) {
-            char* matname = argv[1];
-            ST_int nrows = SF_row(matname);
-            ST_int ncols = SF_col(matname);
-            jl_value_t* X = JL_eval(string(argv[2]) + "= Matrix{Float64}(undef," + to_string(nrows) + "," + to_string(ncols) + ")");  // no more Julia calls till we're done with X, so GC-safe
-            double* px = (double*)jl_array_data(X);
-
-            double NaN = JL_unbox_float64(JL_eval("NaN"));
-            for (ST_int i = 1; i <= ncols; i++)
-                for (ST_int j = 1; j <= nrows; j++) {
-                    SF_mat_el(matname, j, i, px);
-                    if (SF_is_missing((ST_double)*px))
-                        *px = NaN;
-                    px++;
-                }
+            st_matrix(argv[1], argv[2]);
             return 0;
         }
     }
     catch (const char* msg) {
         JL_gc_enable(1);
-        SF_error((char*)msg);
-        SF_error((char*)"\n");
+        SF_macro_save((char*)"___jlans", (char*) msg);
         return 999;
     }
     return 0;

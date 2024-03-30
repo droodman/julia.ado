@@ -289,7 +289,6 @@ program define jl, rclass
   else {  // "jl: ..."
     local after = `"`s(after)'"'
     local before `"`s(before)'"'
-    local varlist = cond(c(k),"*","")
     assure_julia_started
     if `"`after'"' != "" {
       jlcmd `before': `after'
@@ -325,6 +324,7 @@ program define jlcmd, rclass
   local __jlcmd `"`s(after)'"'
   local 0 `"`s(before)'"'
   syntax, [QUIetly INTERruptible]
+  local varlist = cond(c(k),"*","")
   local noisily = "`quietly'"=="" & substr(`"`__jlcmd'"', strlen(`"`__jlcmd'"'), 1) != ";"  // also suppress output if command ends with ";"
 
   jl reset  // clear any previous command lines
@@ -337,11 +337,15 @@ program define jlcmd, rclass
       plugin   call _julia `varlist', evalqui `"stataplugininterface.julia_task = @async (`__jlcmd')"'
       local __jlans 1
       while `__jlans' {
-        plugin call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
+        cap noi plugin call _julia, eval `"stataplugininterface.julia_time=time()+1; for _ in 1:100 (istaskdone(stataplugininterface.julia_task) || time()>stataplugininterface.julia_time) && break; sleep(.01) end; Int(!istaskdone(stataplugininterface.julia_task))"'
+        if _rc continue, break
       }
-      if `noisily' plugin call _julia, eval fetch(stataplugininterface.julia_task)
+      if `noisily' cap noi plugin call _julia, eval fetch(stataplugininterface.julia_task)
+      if _rc continue, break
     }
-    else plugin call _julia `varlist', eval`=cond(`noisily',"","qui")' `"`__jlcmd'"'
+    else cap noi plugin call _julia `varlist', eval`=cond(`noisily',"","qui")' `"`__jlcmd'"'
+    
+    if _rc continue, break
 
     if !`__jlcomplete' di as txt "  .." _request(___jlcmd)  // (plugin overwrites `__jlcomplete')
     if strtrim(`"`__jlcmd'"')=="exit()" {
@@ -350,10 +354,25 @@ program define jlcmd, rclass
     }
   }
 
-  if `noisily' {
+  if `noisily' | _rc {
+    local rc = _rc
+    local __jlans: subinstr local __jlans "`" "'", all
     c_local ans: copy local __jlans
-    cap noi local __jlans `__jlans'  // strips quote marks
-    cap noi if `"`__jlans'"' != "nothing" display_multiline `__jlans'
+    cap noi local __jlans `__jlans'  // strips quote marks around string return variables
+    cap noi if `"`__jlans'"' != "nothing" {
+      if `rc' {  // print error type in red
+        local t = strpos(`"`__jlans'"', ":")
+        di as err substr(`"`__jlans'"', 1, `t') _c
+        local __jlans = substr(`"`__jlans'"', `t'+1, .)
+      }
+      local t = strpos(`"`__jlans'"', char(10))
+      while `t' {
+        di as txt substr(`"`__jlans'"', 1, `t'-1)
+        local __jlans = substr(`"`__jlans'"', `t'+1, .)
+        local t = strpos(`"`__jlans'"', char(10))
+      }
+      di as txt `"`__jlans'"'
+    }
   }
   
   c_local locals: copy local __jllocals

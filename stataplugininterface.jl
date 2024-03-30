@@ -1,7 +1,9 @@
 # see also https://www.stata.com/plugins
 
 module stataplugininterface
-export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_local_save, SF_scal_save, SF_display, SF_error, SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, SF_varindex
+export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, 
+       SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_scal_save, SF_display, SF_error, 
+       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, SF_varindex, st_matrix
 
 using DataFrames, CategoricalArrays
 
@@ -73,8 +75,7 @@ SF_col(mat::AbstractString) = @ccall dllpath[].jlSF_col(mat::Cstring)::Cint
 
 """
     SF_row(mat::AbstractString)
-
-Returns the number of rows of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
+returns the number of rows of Stata matrix mat, or 0 if the matrix doesn't exist or some other error.
 """
 SF_row( mat::AbstractString) = @ccall dllpath[].jlSF_row(mat::Cstring)::Cint
 
@@ -109,38 +110,21 @@ SF_sstore(i::Int, j::Int, s::AbstractString) = begin rc = @ccall dllpath[].jlSF_
 """
     SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real)
 
-Stores val as the [i,j] element of Stata matrix mat.
+Stores val as the [i,j] element of Stata matrix mat. Returns a nonzero return code if an error is encountered.
 """
 SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real) = begin rc = @ccall dllpath[].jlSF_mat_store(mat::Cstring, i::Cint, j::Cint, val::Cdouble)::Cint; rc!=0 && throw(rc); nothing end
 
 """
-    SF_local_save(mac::AbstractString, tosave::AbstractString)
-
-Creates/recreates a Stata local macro named by mac and stores tosave in it.
-"""
-function SF_local_save(mac::AbstractString, tosave::AbstractString)
-    rc = @ccall dllpath[].jlSF_macro_save(("_"*mac)::Cstring, tosave::Cstring)::Cint
-    rc!=0 && throw(rc)
-    mac ∉ Set(("___jlans","___jlcomplete")) &&
-        SF_macro_save("___jllocals", SF_macro_use("___jllocals", 15_480_200) * " " * mac)  # add to Stata local "locals"
-    nothing
-end
-
-"""
     SF_macro_save(mac::AbstractString, tosave::AbstractString)
 
-Creates/recreates a Stata macro named by mac and stores tosave in it.
+Creates/recreates a Stata macro named by mac and stores tosave in it. Returns a nonzero return code on error.
 """
-function SF_macro_save(mac::AbstractString, tosave::AbstractString)
-    rc = @ccall dllpath[].jlSF_macro_save(mac::Cstring, tosave::Cstring)::Cint
-    rc!=0 && throw(rc)
-    nothing
-end
+SF_macro_save(mac::AbstractString, tosave::AbstractString) = begin rc = @ccall dllpath[].jlSF_macro_save(mac::Cstring, tosave::Cstring)::Cint; rc!=0 && throw(rc); nothing end
 
 """
     SF_scal_save(scal::AbstractString, val::Real)
 
-Creates/recreates a Stata scalar named by scal and stores val in it.
+Creates/recreates a Stata scalar named by scal and stores val in it. Returns a nonzero return code on error.
 """
 SF_scal_save(scal::AbstractString, val::Real) = begin rc = @ccall dllpath[].jlSF_scal_save(scal::Cstring, val::Cdouble)::Cint; rc!=0 && throw(rc); nothing end
 
@@ -197,20 +181,18 @@ SF_mat_el(mat::AbstractString, i::Int, j::Int) =
       z[] 
   end
 
-
 """
     SF_macro_use(mac::AbstractString, maxlen::Int)
 
-Returns the Stata global macro mac. Optional maxlen argument limits length.
+Returns the first maxlen characters of Stata macro mac. Local macros can be accessed prefixing their names with "_".
 """
-SF_macro_use(mac::AbstractString, maxlen::Int=15_480_200) =
+SF_macro_use(mac::AbstractString, maxlen::Int) =
   begin 
       s = pointer(Vector{Int8}(undef,maxlen+1))
       rc=@ccall dllpath[].jlSF_macro_use(mac::Cstring, s::Cstring, maxlen::Cint)::Cint 
       rc!=0 && throw(rc)
       GC.@preserve s unsafe_string(Cstring(s)) 
   end
-
 
 """
     SF_scal_use(scal::AbstractString)
@@ -224,6 +206,16 @@ SF_scal_use(scal::AbstractString) =
       rc!=0 && throw(rc);
       z[] 
   end
+
+"""
+    st_matrix(AbstractString::mat)::Matrix{Float64}
+
+Returns the Stata matrix of the given name.
+"""
+function st_matrix(mat::AbstractString)
+    @ccall dllpath[].st_matrix(mat::Cstring, "stataplugininterface.M"::Cstring)::Cvoid
+    stataplugininterface.M
+end
 
 S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
 
@@ -250,4 +242,5 @@ function NaN2missing(df::DataFrame)
         t<:Number && replace!(x, (t<:Integer ? typemax(t) : t==Float32 ? NaN32 : reinterpret(Float64, 0x7fe0000000000000)) => missing)
     end
 end
+
 end
