@@ -32,6 +32,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
 {synopt:{opt GetMatFromMat}}Copy Stata matrix from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt SetEnv}}Switch to named package environment{p_end}
+{synopt:{opt GetEnv}}Get name of current package environment{p_end}
 {synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -65,7 +66,10 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
 
 {phang}
-{cmd:jl SetEnv} {it:name}
+{cmd:jl SetEnv} [{it:name}]
+
+{phang}
+{cmd:jl GetEnv} [{it:name}]
 
 {phang}
 {cmd:jl AddPkg} {it:name}, [{opt min:ver(string)}]
@@ -76,29 +80,35 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 
 {pstd}
 {cmd:jl} gives access from the Stata prompt to the free programming language Julia. It provides three
-main sorts of tools:
+sets of tools:
 
 {p 4 7 0}
-1. The {cmd:jl:} prefix command, which allows you to send commands to Julia and see the results. Example: {cmd:jl: 1+1}.
+1. {it:The {cmd:jl:} prefix command, which allows you to send commands to Julia and see the results.} Example: 
+{cmd:jl: "Hellow world!"}. Typing {cmd:jl:} or {cmd:jl} by itself starts an interactive mode, in which
+multiple lines can be typed. This mode stops when the user types {cmd:exit()}.
 
 {p 4 7 0}
-2. Subcommands, listed above, for high-speed copying of data between Julia and Stata, as well as for installation of Julia packages.
+2. {it:Subcommands, listed above, for high-speed copying of data between Julia and Stata, managing installation of Julia packages.}
 
 {p 4 7 0}
-3. An automatically loaded library of Julia functions to allow reading and writing of Stata variables, macros, matrices, and scalars. These
-functions hew closely to those in the {browse "https://www.stata.com/plugins":Stata Plugin Interface}. For example,
-{cmd:jl: SF_macro_save("a", "3")} is equivalent to {cmd:global a 3}.
+3. {it:A library of Julia functions to allow reading and writing of Stata variables, macros, matrices, and scalars.} Most of
+the functions hew closely to those in the {browse "https://www.stata.com/plugins":Stata plugin interface}. For example,
+{cmd:jl: SF_vdata(1, 2)} getsts the value in the second row of the first variable in the Stata data set. Some
+are higher level: st_data("price mpg") returns a two-column matrix with the contents of those variables.
 
 {pstd}
-Because Julia does just-in-time-compilation, {it:Julia-based commands take longer on first use in a Stata session and even longer on first use ever.}
+Because Julia does just-in-time-compilation, {it:Julia-based commands take longer on first use in a Stata session and even longer on first use on a given machine.}
 
 {pstd}
-The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado file, you can stretch that limit:{p_end}
+The interactive mode does not work in do files. That is, while you can begin a Mata or Python
+block in a do file withe the {cmd:mata} or {cmd:python} command, you cannot do the same for 
+Julia. You can work around that limitation. You put several commands in one
+line, separating them with semicolons. And you can break what are logically single lines into many, using Stata's
+continuation token, "///":{p_end}
 
-{pmore}{inp} jl: local s = 0; for i in 1:10 s += i end; s {p_end}
+{pmore}{inp} jl: s = 0; for i in 1:10 s += i end; s {p_end}
 
-{pmore}{inp} jl: {space 14}/// {p_end}
-{pmore}{inp} {space 4}local s = 0; {space 1}/// {p_end}
+{pmore}{inp} jl: s = 0; {space 7}/// {p_end}
 {pmore}{inp} {space 4}for i in 1:10 /// {p_end}
 {pmore}{inp} {space 8}s += i {space 3}/// {p_end}
 {pmore}{inp} {space 4}end; {space 9}/// {p_end}
@@ -107,25 +117,27 @@ The {cmd:jl:} prefix only accepts single-line expressions. But in a .do or .ado 
 {pstd}
 The {cmd:jl start} command is often not needed. If it is not used, then Julia will be automatically started anyway the first time it is called in a Stata 
 session. The one reason to call {cmd:jl start} is to control the number of CPU threads available to Julia, through the {opt t:hreads()} option. Many Julia 
-programs exploit multithreading to save time. In Windows and Linux, but not macOS, you can also control the number of threads by editing the JULIA_NUM_THREADS 
+programs exploit multithreading for speed. In Windows and Linux, but not macOS, you can also control the number of threads by editing the JULIA_NUM_THREADS 
 environment variable. {cmd:jl start} will have no effect unless it comes before every other {cmd:jl} command in a Stata session, and before any use of
-packages such as {cmd:reghdfejl} and {cmd:boottest} that call {cmd:jl}. For more, see {help jl##threads:section on threads below}.
+packages such as {cmd:reghdfejl} and {cmd:boottest} that call {cmd:jl}. For more, see {help jl##threads:section on threads below}. You
+do not need Stata/MP to run mulithreaded Julia code.
 
 {pstd}
 The data-copying subcommands come in high- and low-level variants. The high-level {cmd:jl use} and {cmd:jl save} subcommands have similar syntax
-to Stata's {help use} and {help save}, but copy to and from Julia DataFrames. Unlike {cmd:jl GetVarsFromDF}, {cmd:jl use}
+to Stata's {help use} and {help save}, but copy to and from Julia DataFrames. Unlike the low-level {cmd:jl GetVarsFromDF}, {cmd:jl use}
 will clear the current data set if the {opt clear} option is included, and ensure that the new data set has enough rows to receive all the data.
 
 {pstd}
-The low-level routines give more control over data copying and include options to improve performance that are 
-useful when using {cmd:jl} to write a Stata program. By default, the {cmd:jl PutVarsToDF} subcommand will map Stata data columns
+The low-level routines give more include options to improve performance that are 
+useful when using {cmd:jl} to write a Julia back end for a Stata package. By default, the {cmd:jl PutVarsToDF} subcommand will map Stata data columns
 to Julia DataFrame columns of corresponding type, and mark all destination columns to allow missing values. {cmd:jl GetVarsFromDF} does
 something similar in the other direction. {cmd:PutVarsToDF}'s {opt nomiss:ing} option increases speed and is appropriate for variables known to contain no missing values. 
 Another time-saving option, {opt double:only}, causes {cmd:jl PutVarsToDF} to map all numeric Stata {help data_types:data types}, to double-precision numbers--called {cmd:double} in Stata
-and {cmd:Float64} in Julia. (Treatment of strings is then undefined.)
+and {cmd:Float64} in Julia. Treatment of strings is then undefined. Without this option, the target
+columns will have the same types as the source columns.
 
 {pstd}
-When copying to Julia, any existing DataFrame of the same name is automatically overwritten.
+When copying to Julia, any existing DataFrame or matrix of the same name is overwritten.
 
 {pstd}
 The subcommands mapping between Stata data and Julia DataFrames translate between Stata variables with value labels and Julia categorical vectors. However,
@@ -139,7 +151,12 @@ packages. Switching to a dedicated environment minimizes version conflicts with 
 downloaded for other purposes. The directory used for the dedicated environment will be a 
 subdirectory of Julia's default package environment directory, for example,
 "`~/.julia/environments/v1.10/MyEnvironment". It will be created if it does not exist. If new,
-it will only have the DataFrames package.
+it will only have the DataFrames package. Calling {cmd:SetEnv} without any arguments reverts to
+the default package environment.
+
+{pstd}
+The {cmd:GetEnv} displays the name and location of the current package environment and
+saves the results as r() macros.
 
 {pstd}
 The {cmd:AddPkg} subcommand updates a package to the latest version in Julia's general registry if the package is not installed at all, or if

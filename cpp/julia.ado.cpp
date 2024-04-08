@@ -242,11 +242,11 @@ STDLL_void st_matrix(char* stmatname, char* jlmatname) {
 }
 
 
-STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, char *touse, char* jlmatname, char nomissing) {
+STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, ST_int in1, ST_int in2, char* touse, char* jlmatname, char nomissing) {
     double* px = (double*)jl_array_data(JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(nvars) + ")"));
 
     #if SYSTEM==APPLEMAC
-    dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
+    dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t _i)
     #else
     #pragma omp parallel
     {
@@ -260,12 +260,12 @@ STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, char *touse, c
             if (touse) {
                 char* _tousej = touse;
                 if (nomissing) {
-                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                    for (ST_int j = in1; j <= in2; j++)
                         if (*_tousej++)
                             SF_vdata(i, j, pxj++);
                 }
                 else
-                    for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                    for (ST_int j = in1; j <= in2; j++)
                         if (*_tousej++) {
                             SF_vdata(i, j, pxj);
                             if (SF_is_missing((ST_double)*pxj))
@@ -354,7 +354,22 @@ STDLL stata_call(int argc, char* argv[])
         int8_t noisily = strcmp(argv[0], "evalqui");
         if (!noisily || !strcmp(argv[0], "eval")) {
             if (argc > 1) {
-                command = command_incomplete? command + " " + string(argv[1]) : string(argv[1]);
+                if (noisily) {
+                    JL_eval("ans = " + string(argv[1]));
+                    SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
+                }
+                else
+                    JL_eval(argv[1]);
+            }
+            return 0;
+        }
+
+        // argv[0] = "eval" or "evalqui": evaluate a Julia expression and return plaintext response in Stata local "ans"; slow if the return value is, e.g., a large array
+        // argv[1] = expression
+        noisily = strcmp(argv[0], "evalmultilinequi");
+        if (!noisily || !strcmp(argv[0], "evalmultiline")) {
+            if (argc > 1) {
+                command = command_incomplete ? command + " " + string(argv[1]) : string(argv[1]);
                 if (command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + command + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
                     SF_macro_save((char*)"___jlcomplete", (char*)"0");
                 else {
@@ -365,8 +380,9 @@ STDLL stata_call(int argc, char* argv[])
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
                         if (noisily) {
                             JL_eval("ans = eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
-                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("display(ans); show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
-                        } else
+                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
+                        }
+                        else
                             JL_eval("eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
                     }
                 }
@@ -379,7 +395,7 @@ STDLL stata_call(int argc, char* argv[])
         // argv[2] = null string for full sample copy (no if/in clause)
         nomissing = !strcmp(argv[0], "PutVarsToMatnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToMat")) {
-            ST_int nobs;
+            ST_int nobs, in1, in2;
             char* touse;
 
             if (*argv[2]) {
@@ -392,15 +408,17 @@ STDLL stata_call(int argc, char* argv[])
                     free(touse);
                     touse = NULL;
                 }
+                in1 = SF_in1(); in2 = SF_in2();
             }
             else {
                 nobs = SF_nobs();
                 touse = NULL;
+                in1 = 1; in2 = nobs;
             }
 
             ST_int *varindexes = (ST_int*)malloc(sizeof(ST_int) * SF_nvars());
             for (ST_int i = 0; i < SF_nvars(); i++) varindexes[i] = i+1;  // copy all variables listed in plugin call before comma, indexed 1..SF_nvars()
-            st_data(varindexes, SF_nvars(), nobs, touse, argv[1], nomissing);
+            st_data(varindexes, SF_nvars(), nobs, in1, in2, touse, argv[1], nomissing);
 
             free(varindexes);
             if (touse) free(touse);

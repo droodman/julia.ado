@@ -73,9 +73,9 @@ program define assure_julia_started
       exit 198
     }
     global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
-
-    qui jl: Int(VERSION < v"1.9.4")
-    if `r(ans)' {
+ 
+    plugin call _julia, eval `"Int(VERSION < v"1.9.4")"'
+    if `__jlans' {
       di as err _n "jl requires that Julia 1.9.4 or higher be installed and accessible by default."
       di as err "See the Installation section of the {help jl##installation:jl help file}."
       global julia_loaded
@@ -83,17 +83,15 @@ program define assure_julia_started
     }
 
     cap noi {
+      qui findfile stataplugininterface.jl
+      plugin call _julia, evalqui `"pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))"'
+      plugin call _julia, evalqui "using stataplugininterface"
+      qui findfile jl.plugin
+      plugin call _julia, evalqui `"stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))"'
+
       jl AddPkg DataFrames, minver(1.6.1)
       jl AddPkg CategoricalArrays, minver(0.10.8)
-      jl, qui: using DataFrames, CategoricalArrays
-
-      qui findfile stataplugininterface.jl
-      jl, qui: pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))
-      jl, qui: using stataplugininterface
-      qui findfile jl.plugin
-      jl, qui: stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))
-
-      jl, qui: const stataplugininterface.type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6, String=>7)
+      plugin call _julia, evalqui "using DataFrames, CategoricalArrays"
     }
     if _rc global julia_loaded
   }
@@ -104,11 +102,12 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 0.10.3
+    return local version 1.0.0
     exit
   }
 
   cap _on_colon_parse `0'
+
   if _rc & `"`0'"'!="" {
     tokenize `"`0'"', parse(" ,")
     local cmd `1'
@@ -129,9 +128,9 @@ program define jl, rclass
       assure_julia_started, `threads'
       exit
     }
-    
+
     assure_julia_started
-    
+
     if `"`cmd'"'=="reset" plugin call _julia, reset
     else if inlist(`"`cmd'"',"SetEnv","GetEnv") {
       if "`cmd'"=="SetEnv" {
@@ -139,23 +138,22 @@ program define jl, rclass
         jl AddPkg DataFrames
         jl AddPkg CategoricalArrays
       }
-      jl: SF_local_save("env", splitpath(Base.active_project())[end-1])
-      jl: SF_local_save("envdir", dirname(Base.active_project()))
-      jl: SF_local_save("default", dirname(Base.load_path_expand("@v#.#")))
+      plugin call _julia, evalqui `"st_local("env", splitpath(Base.active_project())[end-1])"'
+      plugin call _julia, evalqui `"st_local("envdir", dirname(Base.active_project()))"'
+      plugin call _julia, evalqui `"st_local("default", dirname(Base.load_path_expand("@v#.#")))"'
       di as txt "Current package environment: `env'`=cond("`envdir'"=="`default'"," (default)","")', at `envdir'"
       return local env: copy local env
       return local envdir: copy local envdir
     }
     else if `"`cmd'"'=="AddPkg" {
       syntax name, [MINver(string)]
-      jl, qui: using Pkg
-      qui jl: Int(!("`namelist'" in keys(Pkg.project().dependencies)))
-      local notinstalled `r(ans)'
-      if !`notinstalled' & "`minver'"!="" qui jl: length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])
-      if `notinstalled' | `r(ans)' {
+      plugin call _julia, evalqui "using Pkg"
+      plugin call _julia, evalqui `"st_local("notinstalled", string(Int(!("`namelist'" in keys(Pkg.project().dependencies)))))"'
+      if !`notinstalled' & "`minver'"!="" plugin call _julia, eval `"length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])"'
+      if `notinstalled' | 0`__jlans' {
         di as txt "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes." _n 
         mata displayflush() 
-        jl, qui: Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))
+        plugin call _julia, evalqui `"Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))"'
         if _rc {
           di as err _n "Failed to update the Julia package `namelist'."
           di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.update("`namelist'")}"'
@@ -170,15 +168,14 @@ program define jl, rclass
       if `"`using'"'=="" {
         _assert `:word count `namelist''==1, msg("Just specify one source DataFrame.") rc(198) 
         local source `namelist'
-        qui jl: join(names(`source'), " ")
-        local cols `r(ans)'
+        plugin call _julia, evalqui `"st_local("cols", join(names(`source'), " "))"'
       }
       else {
         local source `using'
         local cols `namelist'
       }
-      qui jl: size(`source',1)
-      qui set obs `r(ans)'
+      plugin call _julia, eval "size(`source',1)"
+      qui set obs `__jlans'
       jl GetVarsFromDF `cols', source(`source') 
     }
     else if `"`cmd'"'=="PutVarsToDF" {
@@ -250,17 +247,16 @@ program define jl, rclass
           _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
         }
       if "`replace'"=="" confirm new var `namelist'
-      qui jl: stataplugininterface.statatypes(`source', "`cols'")
-      local types `r(ans)'
+      plugin call _julia, evalqui `"st_local("type", stataplugininterface.statatypes(`source', "`cols'"))"'
       local ncols: word count `cols'
       forvalues v=1/`ncols' {
         local type: word `v' of `types'
         local col : word `v' of `cols'
         local name: word `v' of `namelist'
         cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
-        qui jl: Int(`source'.`col' isa CategoricalVector)
-        if `r(ans)' {
-          jl: SF_local_save("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "));
+        plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
+        if `__jlans' {
+          plugin call _julia, evalqui `"st_local("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "))"'
           label define `name' `=subinstr(`"`labeldef'"', "%", `"""', .)', replace
           label values `name' `name'
         }
@@ -268,13 +264,13 @@ program define jl, rclass
       plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
-      syntax name, [source(string asis)]
-      if `"`source'"'=="" local source `namelist'
-      qui jl: size(`source', 1)
-      local rows `r(ans)'
-      qui jl: size(`source', 2)
-      mat `namelist' = J(`rows', `r(ans)', .)
-      plugin call _julia, GetMatFromMat `namelist' `"`source'"'
+       syntax name, [source(string asis)]
+
+       if `"`source'"'=="" local source `namelist'
+       plugin call _julia, evalqui `"st_local("rows", string(size(`source',1)))"'
+       plugin call _julia, evalqui `"st_local("cols", string(size(`source',2)))"'
+       mat `namelist' = J(`rows', `cols', .)
+       plugin call _julia, GetMatFromMat `namelist' `"`source'"'
     }
     else if `"`cmd'"'=="PutMatToMat" {
       syntax name, [DESTination(string)]
@@ -289,7 +285,9 @@ program define jl, rclass
   else {  // "jl: ..."
     local after = `"`s(after)'"'
     local before `"`s(before)'"'
+
     assure_julia_started
+
     if `"`after'"' != "" {
       jlcmd `before': `after'
       foreach macro in `locals' {
@@ -306,7 +304,8 @@ program define jl, rclass
           di as txt "{hline}"
           continue, break
         }
-        cap noi jlcmd `before': `cmdline'
+        jl reset  // clear any previous command lines
+        cap noi jlcmd `before', multiline: `cmdline'
         if 0`r(exit)' continue, break
         foreach macro in `locals' {
           c_local `macro': copy local `macro'
@@ -314,7 +313,6 @@ program define jl, rclass
       }
     }
   }
-
   return local ans: copy local ans
 end
 
@@ -323,11 +321,9 @@ program define jlcmd, rclass
   cap _on_colon_parse `0'
   local __jlcmd `"`s(after)'"'
   local 0 `"`s(before)'"'
-  syntax, [QUIetly INTERruptible]
+  syntax, [QUIetly INTERruptible multiline]
   local varlist = cond(c(k),"*","")
   local noisily = "`quietly'"=="" & substr(`"`__jlcmd'"', strlen(`"`__jlcmd'"'), 1) != ";"  // also suppress output if command ends with ";"
-
-  jl reset  // clear any previous command lines
 
   local __jlcomplete 0
   while !`__jlcomplete' {
@@ -343,9 +339,9 @@ program define jlcmd, rclass
       if `noisily' cap noi plugin call _julia, eval fetch(stataplugininterface.julia_task)
       if _rc continue, break
     }
-    else cap noi plugin call _julia `varlist', eval`=cond(`noisily',"","qui")' `"`__jlcmd'"'
-    
-    if _rc continue, break
+    else cap noi plugin call _julia `varlist', eval`multiline'`=cond(`noisily',"","qui")' `"`__jlcmd'"'
+
+    if _rc | "`multiline'"=="" continue, break
 
     if !`__jlcomplete' di as txt "  .." _request(___jlcmd)  // (plugin overwrites `__jlcomplete')
     if strtrim(`"`__jlcmd'"')=="exit()" {
@@ -358,7 +354,6 @@ program define jlcmd, rclass
     local rc = _rc
     local __jlans: subinstr local __jlans "`" "'", all
     c_local ans: copy local __jlans
-    cap noi local __jlans `__jlans'  // strips quote marks around string return variables
     cap noi if `"`__jlans'"' != "nothing" {
       if `rc' {  // print error type in red
         local t = strpos(`"`__jlans'"', ":")
@@ -381,21 +376,9 @@ program define jlcmd, rclass
   }
 end
 
+cap program drop _julia
 program _julia, plugin using(jl.plugin)
 
-* properly print a string with newlines
-program define display_multiline
-  version 14.1
-  tempname t
-  local s `0'
-  scalar `t' = strpos(`"`s'"', char(10))
-  while `t' {
-    di substr(`"`s'"', 1, `t'-1)
-    local s = substr(`"`s'"', `t'+1, .)
-    scalar `t' = strpos(`"`s'"', char(10))
-  }
-  di `"`s'"'
-end
 
 * Version history
 * 0.5.0  Initial commit
