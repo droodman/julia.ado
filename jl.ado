@@ -1,4 +1,4 @@
-*! jl 0.10.3 22 March 2024
+*! jl 1.0.0 8 April 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -400,3 +400,4 @@ program _julia, plugin using(jl.plugin)
 * 0.10.1 Fixed memory leak
 * 0.10.2 threads() option on start
 * 0.10.3 Bug fix for 0.10.2
+*  1.0.0 Add GetEnv, support for closing ";", and interactive mode

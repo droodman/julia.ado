@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 0.10.0 3mar2024}{...}
+{* *! jl 1.0.0 8apr2024}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -11,7 +11,7 @@ Bridge to Julia{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:jl} [, {cmdab:qui:etly} {cmdab:inter:ruptible}]: {it:juliaexpr}
+{cmd:jl} [, {cmdab:inter:ruptible}]: {it:juliaexpr}
 
 {phang2}
 where {it:juliaexpr} is an expression to be evaluated in Julia.
@@ -83,7 +83,8 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 sets of tools:
 
 {p 4 7 0}
-1. {it:The {cmd:jl:} prefix command, which allows you to send commands to Julia and see the results.} Example: 
+1. {it:The {cmd:jl:} prefix command, which allows you to send commands to Julia and see the results.} (But results
+are suppressed for lines ending with ";".) Example: 
 {cmd:jl: "Hellow world!"}. Typing {cmd:jl:} or {cmd:jl} by itself starts an interactive mode, in which
 multiple lines can be typed. This mode stops when the user types {cmd:exit()}.
 
@@ -102,7 +103,7 @@ Because Julia does just-in-time-compilation, {it:Julia-based commands take longe
 {pstd}
 The interactive mode does not work in do files. That is, while you can begin a Mata or Python
 block in a do file withe the {cmd:mata} or {cmd:python} command, you cannot do the same for 
-Julia. You can work around that limitation. You put several commands in one
+Julia. You can work around that limitation. You can put several commands in one
 line, separating them with semicolons. And you can break what are logically single lines into many, using Stata's
 continuation token, "///":{p_end}
 
@@ -244,10 +245,6 @@ To determine how many threads are available, type "{stata "jl: Threads.nthreads(
 {title:Options}
 
 {pstd}
-{cmd:jl,} {opt qui:etly}{cmd::...} is nearly the same as {cmd:quietly jl:...}. The difference
-is that the first will stop the software from copying the output of a Julia command to Stata before suppressing
-that output. This will save time if the output is very long.
-
 {pstd}
 The {opt inter:ruptible} option of the {cmd:jl:} prefix command makes it possible, at a small performance cost, to interrupt a Julia command the way you
 interrupt Stata commands, such as with Ctrl-Break (Windows), Command+. (Mac), or the red X icon in the Stata toolbar. Just as 
