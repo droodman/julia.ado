@@ -305,7 +305,7 @@ program define jl, rclass
           continue, break
         }
         jl reset  // clear any previous command lines
-        cap noi jlcmd `before', multiline: `cmdline'
+        cap noi jlcmd `before': `cmdline'
         if 0`r(exit)' continue, break
         foreach macro in `locals' {
           c_local `macro': copy local `macro'
@@ -321,10 +321,11 @@ program define jlcmd, rclass
   cap _on_colon_parse `0'
   local __jlcmd `"`s(after)'"'
   local 0 `"`s(before)'"'
-  syntax, [QUIetly INTERruptible multiline]
+  syntax, [QUIetly INTERruptible noREPL]
   local varlist = cond(c(k),"*","")
   local noisily = "`quietly'"=="" & substr(`"`__jlcmd'"', strlen(`"`__jlcmd'"'), 1) != ";"  // also suppress output if command ends with ";"
-
+  local multiline = cond("`repl'"=="","multiline","")
+  
   local __jlcomplete 0
   while !`__jlcomplete' {
     local __jlcomplete 1

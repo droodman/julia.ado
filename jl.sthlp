@@ -11,7 +11,7 @@ Bridge to Julia{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:jl} [, {cmdab:inter:ruptible}]: {it:juliaexpr}
+{cmd:jl} [, {opt inter:ruptible} {opt norepl}]: {it:juliaexpr}
 
 {phang2}
 where {it:juliaexpr} is an expression to be evaluated in Julia.
@@ -245,13 +245,6 @@ To determine how many threads are available, type "{stata "jl: Threads.nthreads(
 {title:Options}
 
 {pstd}
-{pstd}
-The {opt inter:ruptible} option of the {cmd:jl:} prefix command makes it possible, at a small performance cost, to interrupt a Julia command the way you
-interrupt Stata commands, such as with Ctrl-Break (Windows), Command+. (Mac), or the red X icon in the Stata toolbar. Just as 
-with regular Stata commands, the response to an interruption will not always be immediate. For example, a large matrix multiplication
-or inversion operation can delay the response.
-
-{pstd}
 In the data-copying subcommands, the {varlist}'s and {opt matname}'s before the commas always
 refer to Stata variables or matrices. If a {varlist} is omitted where it is optional,
 the variable list will default to {cmd:*}, i.e., all variables in the current data frame in 
@@ -267,6 +260,19 @@ DataFrame columns to be copied to or from. It defaults to the Stata {varlist} be
 Destination Stata matrices and Julia matrices and DataFrames are entirely replaced. Destination Stata
 variables will be created or, if {opt replace} is specified, overwritten, subject to any
 {ifin} restriction.
+
+{pstd}
+The {opt inter:ruptible} option of the {cmd:jl:} prefix command makes it possible, at a small performance cost, to interrupt a Julia command the way you
+interrupt Stata commands, such as with Ctrl-Break (Windows), Command+. (Mac), or the red X icon in the Stata toolbar. Just as 
+with regular Stata commands, the response to an interruption will not always be immediate. For example, a large matrix multiplication
+or inversion operation can delay the response.
+
+{pstd}
+The {opt norepl} option of the {cmd:jl:} prefix command is a programmer's option. By default, {cmd:jl:}
+{browse "https://docs.julialang.org/en/v1/manual/variables-and-scoping/#local-scope":interprets soft-scoped assignments as if in an interactive context}. This 
+behavior comes at a time cost that is small in absolute terms (~0.01 seconds), but which
+can be large in relative terms and add up in a program that makes many {cmd:jl:} calls. {cmd:jl, norepl:} causes soft-scoped assignments
+to be treated as if in a non-interactive context.
 
 
 {title:Stored results}
