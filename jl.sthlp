@@ -11,7 +11,10 @@ Bridge to Julia{p_end}
 {title:Syntax}
 
 {phang}
-{cmd:jl} [, {opt inter:ruptible} {opt norepl}]: {it:juliaexpr}
+{cmd:jl}: {it:juliaexpr}
+
+{phang}
+{cmd:_jl}: {it:juliaexpr}
 
 {phang2}
 where {it:juliaexpr} is an expression to be evaluated in Julia.
@@ -48,7 +51,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl save} {it:dataframename}, [{opt nolab:el} {opt nomiss:ing} {opt double:only}]
 
 {phang}
-{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)} {opt nomiss:ing} {opt double:only}]
+{cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)} {opt nolab:el} {opt nomiss:ing} {opt double:only}]
 
 {phang}
 {cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source(string)} {opt replace} {opt nomiss:ing}]
@@ -262,17 +265,12 @@ variables will be created or, if {opt replace} is specified, overwritten, subjec
 {ifin} restriction.
 
 {pstd}
-The {opt inter:ruptible} option of the {cmd:jl:} prefix command makes it possible, at a small performance cost, to interrupt a Julia command the way you
-interrupt Stata commands, such as with Ctrl-Break (Windows), Command+. (Mac), or the red X icon in the Stata toolbar. Just as 
-with regular Stata commands, the response to an interruption will not always be immediate. For example, a large matrix multiplication
-or inversion operation can delay the response.
-
-{pstd}
-The {opt norepl} option of the {cmd:jl:} prefix command is a programmer's option. By default, {cmd:jl:}
-{browse "https://docs.julialang.org/en/v1/manual/variables-and-scoping/#local-scope":interprets soft-scoped assignments as if in an interactive context}. This 
-behavior comes at a time cost that is small in absolute terms (~0.01 seconds), but which
-can be large in relative terms and add up in a program that makes many {cmd:jl:} calls. {cmd:jl, norepl:} causes soft-scoped assignments
-to be treated as if in a non-interactive context.
+The {cmd:_jl:} prefix command is for programmers. It works the same as {cmd:jl:}, except that for the sake of speed it disables
+certain features of {cmd:jl:} that enhance the interactive Julia experience within Stata. These include showing output from {cmd:print()}
+and other commands, not generating syntax errors partway through multi-line code blocks such as for loops, and 
+{browse "https://docs.julialang.org/en/v1/manual/variables-and-scoping/#local-scope":interpreting soft-scoped assignments as if in interactive mode}. The 
+time savings from {cmd:_jl:} can be small in absolute terms (~0.01 seconds per call). But it adds up in a program that issues many
+Julia commands.
 
 
 {title:Stored results}

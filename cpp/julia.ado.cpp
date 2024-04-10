@@ -328,7 +328,8 @@ STDLL stata_call(int argc, char* argv[])
             JL_init();
 
             JL_eval("using REPL");
-            JL_eval("const _Stata_io = IOBuffer(); const _Stata_context=IOContext(_Stata_io, :limit=>true)");
+            JL_eval("const _Stata_io = IOBuffer()");
+            JL_eval("const _Stata_context = IOContext(_Stata_io, :limit=>true)");
 
             int8max = numeric_limits<int8_t>::max();
             int16max = numeric_limits<int16_t>::max();
@@ -356,7 +357,7 @@ STDLL stata_call(int argc, char* argv[])
             if (argc > 1) {
                 if (noisily) {
                     JL_eval("ans = " + string(argv[1]));
-                    SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
+                    SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("!isnothing(ans) && show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
                 }
                 else
                     JL_eval(argv[1]);
@@ -379,8 +380,10 @@ STDLL stata_call(int argc, char* argv[])
                     else {
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
                         if (noisily) {
+                            JL_eval("_Stata_stdout = redirect_stdout(); _Stata_task=@async read(_Stata_stdout)");
                             JL_eval("ans = eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
-                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
+                            JL_eval("close(_Stata_stdout); print(_Stata_io, String(fetch(_Stata_task)))");
+                            SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("!isnothing(ans) && show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
                         }
                         else
                             JL_eval("eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
@@ -425,7 +428,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new, all-Float64 Julia DataFrame, with no special handling of Stata pmissings
+        // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
         // argv[2] = DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
         // argv[3] = null string for full sample copy (no if/in clause)

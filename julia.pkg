@@ -22,6 +22,7 @@ d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
 f jl.ado
+f _jl.ado
 f jl.sthlp
 F stataplugininterface.jl
 G WIN64 jl.pluginWIN64.dll jl.plugin

@@ -305,7 +305,7 @@ program define jl, rclass
           continue, break
         }
         jl reset  // clear any previous command lines
-        cap noi jlcmd `before': `cmdline'
+        cap noi jlcmd `before':`cmdline'
         if 0`r(exit)' continue, break
         foreach macro in `locals' {
           c_local `macro': copy local `macro'
@@ -319,11 +319,18 @@ end
 cap program drop jlcmd
 program define jlcmd, rclass
   cap _on_colon_parse `0'
-  local __jlcmd `"`s(after)'"'
+  local __jlcmd  = trim(`"`s(after)'"')
   local 0 `"`s(before)'"'
   syntax, [QUIetly INTERruptible noREPL]
   local varlist = cond(c(k),"*","")
   local noisily = "`quietly'"=="" & substr(`"`__jlcmd'"', strlen(`"`__jlcmd'"'), 1) != ";"  // also suppress output if command ends with ";"
+  if substr(`"`__jlcmd'"',1,1)=="?" {
+    if `"`__jlcmd'"'=="?" {
+      di as err "Julia help mode not supported. But you can prefix single commands with "?". Example: ?sum."
+      exit
+    }
+    local __jlcmd = "@doc "+ substr(`"`__jlcmd'"',2,.)
+  }
   local multiline = cond("`repl'"=="","multiline","")
   
   local __jlcomplete 0
