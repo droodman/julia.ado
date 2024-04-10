@@ -3,7 +3,7 @@
 module stataplugininterface
 export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, 
        SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_scal_save, SF_display, SF_error, 
-       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_local
+       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_local, st_view
 
 using DataFrames, CategoricalArrays
 
@@ -22,32 +22,32 @@ if abbrev=true _and_ Stata has "set varabbrev" on.
 st_varindex(s::AbstractString, abbrev::Bool=true) = @ccall dllpath[].jlSF_varindex(s::Cstring, abbrev::Cint)::Cint
 
 """
-    SF_sdatalen(i::Int, j::Int)
+    SF_sdatalen(i::Integer, j::Integer)
 
-Returns the length, in bytes, of the jth observation of the ith variable of the Stata data set, if it is a string.
+Returns the length, in bytes, of the ith observation of the jth variable of the Stata data set, if it is a string.
 """
-SF_sdatalen(i::Int, j::Int) = @ccall dllpath[].jlSF_sdatalen(i::Cint, j::Cint)::Cint
+SF_sdatalen(i::Integer, j::Integer) = @ccall dllpath[].jlSF_sdatalen(j::Cint, i::Cint)::Cint
 
 """
-    SF_var_is_string(i::Int)
+    SF_var_is_string(i::Integer)
 
 Checks the ith variable of the Stata data set and returns 1 if the variable is a string variable (meaning str# or strL) and 0 if the variable is a numeric variable
 """
-SF_var_is_string(i::Int) = @ccall dllpath[].jlSF_var_is_string(i::Cint)::Cchar
+SF_var_is_string(i::Integer) = @ccall dllpath[].jlSF_var_is_string(i::Cint)::Cchar
 
 """
-    SF_var_is_strl(i::Int)
+    SF_var_is_strl(i::Integer)
 
 Checks whether variable i of the Stata data set is a str# variable or a strL variable. It returns 1 if the variable is a strL and 0 otherwise.
 """
-SF_var_is_strl(i::Int) = @ccall dllpath[].jlSF_var_is_strl(i::Cint)::Cchar
+SF_var_is_strl(i::Integer) = @ccall dllpath[].jlSF_var_is_strl(i::Cint)::Cchar
 
 """
-    SF_var_is_binary(i::Int, j::Int)
+    SF_var_is_binary(i::Integer, j::Integer)
 
 Checks the jth observation of the ith variable of the Stata data set. It returns 1 if the value is a binary strL and 0 otherwise.
 """
-SF_var_is_binary(i::Int, j::Int) = @ccall dllpath[].jlSF_var_is_binary(i::Cint, j::Cint)::Cchar
+SF_var_is_binary(i::Integer, j::Integer) = @ccall dllpath[].jlSF_var_is_binary(i::Cint, j::Cint)::Cchar
 
 """
     SF_nobs()
@@ -64,7 +64,7 @@ Returns the number of variables in the Stata data set.
 SF_nvar() = @ccall dllpath[].jlSF_nvar()::Cint
 
 SF_nvars() = @ccall dllpath[].jlSF_nvars()::Cint
-SF_ifobs(j::Int) = @ccall dllpath[].jlSF_ifobs(j::Cint)::Cchar
+SF_ifobs(j::Integer) = @ccall dllpath[].jlSF_ifobs(j::Cint)::Cchar
 SF_in1()= @ccall dllpath[].jlSF_in1()::Cint
 SF_in2() = @ccall dllpath[].jlSF_in2()::Cint
 
@@ -95,33 +95,33 @@ Returns a representation of Stata "missing" as a Float64.
 SF_missval() = @ccall dllpath[].jlSF_missval()::Cdouble
 
 """
-    SF_vstore(i::Int, j::Int, val::Real)
+    SF_vstore(i::Integer, j::Integer, val::Real)
 
-Stores val in the jth observation of variable i of the Stata data set.
+Stores val in the ith observation of variable j of the Stata data set.
 """
-function SF_vstore(i::Int, j::Int, val::Real)
-    rc = @ccall dllpath[].jlSF_vstore(i::Cint, j::Cint, val::Cdouble)::Cint
+function SF_vstore(i::Integer, j::Integer, val::Real)
+    rc = @ccall dllpath[].jlSF_vstore(j::Cint, i::Cint, val::Cdouble)::Cint
     rc!=0 && throw(rc)
     nothing
 end
 
 """
-    SF_sstore(i::Int, j::Int, s::AbstractString)
+    SF_sstore(i::Integer, j::Integer, s::AbstractString)
 
-Stores s in the jth observation of variable i of the Stata data set.
+Stores s in the ith observation of variable j of the Stata data set.
 """
-function SF_sstore(i::Int, j::Int, s::AbstractString)
-    rc = @ccall dllpath[].jlSF_sstore(i::Cint, j::Cint, s::Cstring)::Cint
+function SF_sstore(i::Integer, j::Integer, s::AbstractString)
+    rc = @ccall dllpath[].jlSF_sstore(j::Cint, i::Cint, s::Cstring)::Cint
     rc!=0 && throw(rc)
     nothing
 end
 
 """
-    SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real)
+    SF_mat_store(mat::AbstractString, i::Integer, j::Integer, val::Real)
 
 Stores val as the [i,j] element of Stata matrix mat. Returns a nonzero return code if an error is encountered.
 """
-function SF_mat_store(mat::AbstractString, i::Int, j::Int, val::Real)
+function SF_mat_store(mat::AbstractString, i::Integer, j::Integer, val::Real)
     rc = @ccall dllpath[].jlSF_mat_store(mat::Cstring, i::Cint, j::Cint, val::Cdouble)::Cint
     rc!=0 && throw(rc)
     nothing
@@ -172,35 +172,35 @@ function SF_error(s::AbstractString)
 end
 
 """
-    SF_vdata(i::Int, j::Int)
+    SF_vdata(i::Integer, j::Integer)
 
-Returns the jth observation of (numeric) variable i of the Stata data set. Throws an error for non-numeric variables.
+Returns the ith observation of (numeric) variable j of the Stata data set. Throws an error for non-numeric variables.
 """
-function SF_vdata(i::Int, j::Int)
+function SF_vdata(i::Integer, j::Integer)
   z = Vector{Float64}(undef,1)
-  rc = ccall((:jlSF_vdata, dllpath[]), Cint, (Cint, Cint, Ref{Cdouble}), i, j, pointer(z))
+  rc = ccall((:jlSF_vdata, dllpath[]), Cint, (Cint, Cint, Ref{Cdouble}), j, i, pointer(z))
   rc!=0 && throw(rc)
   z[] 
 end
 
 """
-    SF_sdata(i::Int, j::Int)
+    SF_sdata(i::Integer, j::Integer)
 
-Returns the jth observation of (string) variable i of the Stata data set. Throws an error for non-string variables.
+Returns the ith observation of (string) variable j of the Stata data set. Throws an error for non-string variables.
 """
-function SF_sdata(i::Int, j::Int)
-  s = pointer(Vector{Int8}(undef,SF_sdatalen(i,j)+1))
-  rc = @ccall dllpath[].jlSF_sdata(i::Cint, j::Cint, s::Cstring)::Cint
+function SF_sdata(i::Integer, j::Integer)
+  s = pointer(Vector{Int8}(undef,SF_sdatalen(j,i)+1))
+  rc = @ccall dllpath[].jlSF_sdata(j::Cint, i::Cint, s::Cstring)::Cint
   rc!=0 && throw(rc)
   GC.@preserve s unsafe_string(Cstring(s)) 
 end
 
 """
-    SF_mat_el(mat::AbstractString, i::Int, j::Int)
+    SF_mat_el(mat::AbstractString, i::Integer, j::Integer)
 
 Returns the [i,j] element of Stata matrix mat.
 """
-function SF_mat_el(mat::AbstractString, i::Int, j::Int)
+function SF_mat_el(mat::AbstractString, i::Integer, j::Integer)
   z = Vector{Float64}(undef,1)
   rc = ccall((:jlSF_mat_el, dllpath[]), Cint, (Cstring, Cint, Cint, Ref{Cdouble}), mat, i, j, pointer(z))
   rc!=0 && throw(rc)
@@ -208,11 +208,11 @@ function SF_mat_el(mat::AbstractString, i::Int, j::Int)
 end
 
 """
-    SF_macro_use(mac::AbstractString, maxlen::Int)
+    SF_macro_use(mac::AbstractString, maxlen::Integer)
 
 Returns the first maxlen characters of Stata macro mac. Local macros can be accessed prefixing their names with "_".
 """
-function SF_macro_use(mac::AbstractString, maxlen::Int)
+function SF_macro_use(mac::AbstractString, maxlen::Integer)
   s = pointer(Vector{Int8}(undef,maxlen+1))
   rc = @ccall dllpath[].jlSF_macro_use(mac::Cstring, s::Cstring, maxlen::Cint)::Cint 
   rc!=0 && throw(rc)
@@ -246,12 +246,18 @@ end
 
 """
     st_matrix(matname::AbstractString)::Matrix{Float64}
+    st_matrix(matname::AbstractString, jlmat::AbstractMatrix{<:Number})::Matrix{Float64}
 
-Returns the Stata matrix of the given name.
+Returns or assigns to the Stata matrix of the given name. For assignment, large-enough Stata matrix must already exist.
 """
-function st_matrix(mat::AbstractString)
-    @ccall dllpath[].st_matrix(mat::Cstring, "stataplugininterface.M"::Cstring)::Cvoid
+function st_matrix(matname::AbstractString)
+    @ccall dllpath[].copymatS2J(matname::Cstring, "stataplugininterface.M"::Cstring)::Cvoid
     stataplugininterface.M
+end
+function st_matrix(matname::AbstractString, jlmat::VecOrMat{<:Number})
+    @assert SF_row(matname) ≥ size(jlmat,1) && SF_col(matname) ≥ size(jlmat,2) "receiving matrix does not exist or is too small"
+    @ccall dllpath[].copymatJ2S(jlmat::Any, matname::Cstring)::Cvoid
+    nothing
 end
 
 """
@@ -265,18 +271,20 @@ st_numscalar(scalarname, val) = begin SF_scal_save(scalarname, val); nothing end
 
 
 """
-    st_data(scalarname::Vector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
-    st_data(scalarname::AbstractString, sample::Vector{Bool}=Bool[])::Matrix{Float64}
+    st_data(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
+    st_data(varnames::AbstractString, sample::Vector{Bool}=Bool[])::Matrix{Float64}
 
-Return one or more variables in a matrix. `scalarname` can be a vector space-delimited string of variable names.
+Return one or more variables in a matrix. `scalarname` is a vector or space-delimited string of variable names.
 """
-function st_data(varnames::Vector{<:AbstractString}, sample::Vector{Bool}=Bool[])
+function st_data(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])
+    ind = st_varindex.(varnames)
+    @assert !any(Bool ∘ SF_var_is_string, ind) "st_data() is for numeric variables"
     if iszero(length(sample))
-        @ccall stataplugininterface.dllpath[].st_data(pointer(st_varindex.(varnames))::Ref{Cint}, length(varnames)::Cint, 
+        @ccall stataplugininterface.dllpath[].st_data(pointer(ind)::Ref{Cint}, length(varnames)::Cint, 
                      SF_nobs()::Cint, 1::Cint, SF_nobs()::Cint, C_NULL::Ptr{Cchar}, "stataplugininterface.M"::Cstring, 0::Cchar)::Cvoid
     else
         @assert length(sample)==SF_nobs() "sample vector, if provided, must have same height as data set"
-        @ccall stataplugininterface.dllpath[].st_data(pointer(st_varindex.(varnames))::Ref{Cint}, length(varnames)::Cint, 
+        @ccall stataplugininterface.dllpath[].st_data(pointer(ind)::Ref{Cint}, length(varnames)::Cint, 
                      sum(sample)::Cint, 1::Cint, SF_nobs()::Cint, pointer(sample)::Ptr{Cchar}, "stataplugininterface.M"::Cstring, 0::Cchar)::Cvoid
     end
     stataplugininterface.M
@@ -310,4 +318,42 @@ function NaN2missing(df::DataFrame)
     end
 end
 
+# view onto Stata column(s). S is Val(true) for subviews.
+struct st_view{S} <: AbstractMatrix{Float64}
+    nrows::Int64
+    ncols::Int32
+    varindex::Vector{Int32}
+    sample::Vector{Int64}
 end
+function st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])
+    ind = st_varindex.(varnames)
+    @assert !any(Bool ∘ SF_var_is_string, ind) "st_view() is for numeric variables"
+    if iszero(length(sample))
+        st_view{Val(false)}(SF_nobs(), length(varnames), ind, Int64[])
+    else
+        @assert iszero(length(sample)) || length(sample)==SF_nobs() "sample vector, if provided, must have same height as data set"
+        s = findall(sample)
+        st_view{Val(true)}(length(s), length(varnames), ind, s)
+    end
+end
+st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_view(split(varnames), sample)
+
+import Base.size, Base.length, Base.getindex, Base.setindex!
+size(v::st_view) = v.nrows, v.ncols
+getindex(v::st_view{Val(false)}, i::Integer, j::Integer) where T = SF_vdata(i, v.varindex[j])
+getindex(v::st_view{Val(true)}, i::Integer, j::Integer) where T = SF_vdata(v.sample[i], v.varindex[j])
+getindex(v::st_view, i::Integer) = getindex(v, i, 1)
+getindex(v::st_view, I::CartesianIndex{1}) = getindex(v, I[1], 1)
+getindex(v::st_view, I::CartesianIndex{2}) = getindex(v, I[1], I[2])
+function setindex!(v::st_view{Val(false)}, val::Number, i, j)
+    SF_vstore(i, v.varindex[j], val)
+    nothing
+end
+function setindex!(v::st_view{Val(true)}, val::Number, i, j)
+    SF_vstore(v.sample[i], v.varindex[j], val)
+    nothing
+end
+setindex!(v::st_view, val::Number, i) = setindex!(v, val, i, 1)
+end
+
+

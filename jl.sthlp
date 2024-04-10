@@ -295,7 +295,7 @@ returns the value of the Stata scalar {cmd:X}.
 {synoptline}
 {synopt:{bf:SF_nobs()}}Number of observations in Stata data set{p_end}
 {synopt:{bf:SF_nvar()}}Number of variables{p_end}
-{synopt:{bf:SF_varindex(s::AbstractString)}}Index of variable named s in data set{p_end}
+{synopt:{bf:SF_varindex(s::AbstractString)}}Index in data set of variable named s{p_end}
 {synopt:{bf:SF_var_is_string(i::Int)}}Whether variable i is string{p_end}
 {synopt:{bf:SF_var_is_strl(i::Int)}}Whether variable i is a strL{p_end}
 {synopt:{bf:SF_var_is_binary(i::Int, j::Int)}}Whether observation i of variable j is a binary strL{p_end}

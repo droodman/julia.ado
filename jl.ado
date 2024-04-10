@@ -83,15 +83,15 @@ program define assure_julia_started
     }
 
     cap noi {
+      jl AddPkg DataFrames, minver(1.6.1)
+      jl AddPkg CategoricalArrays, minver(0.10.8)
+      plugin call _julia, evalqui "using DataFrames, CategoricalArrays"
+
       qui findfile stataplugininterface.jl
       plugin call _julia, evalqui `"pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))"'
       plugin call _julia, evalqui "using stataplugininterface"
       qui findfile jl.plugin
       plugin call _julia, evalqui `"stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))"'
-
-      jl AddPkg DataFrames, minver(1.6.1)
-      jl AddPkg CategoricalArrays, minver(0.10.8)
-      plugin call _julia, evalqui "using DataFrames, CategoricalArrays"
     }
     if _rc global julia_loaded
   }
@@ -138,17 +138,18 @@ program define jl, rclass
         jl AddPkg DataFrames
         jl AddPkg CategoricalArrays
       }
-      plugin call _julia, evalqui `"st_local("env", splitpath(Base.active_project())[end-1])"'
-      plugin call _julia, evalqui `"st_local("envdir", dirname(Base.active_project()))"'
-      plugin call _julia, evalqui `"st_local("default", dirname(Base.load_path_expand("@v#.#")))"'
-      di as txt "Current package environment: `env'`=cond("`envdir'"=="`default'"," (default)","")', at `envdir'"
-      return local env: copy local env
-      return local envdir: copy local envdir
+      plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
+      return local env: copy local __jlans
+      plugin call _julia, eval `"dirname(Base.active_project())"'
+      return local envdir: copy local __jlans
+      plugin call _julia, eval `"dirname(Base.load_path_expand("@v#.#"))"'
+      di as txt "Current package environment: `return(env)'`=cond("`return(envdir)'"=="`__jlans'"," (default)","")', at `return(envdir)'"
     }
     else if `"`cmd'"'=="AddPkg" {
       syntax name, [MINver(string)]
       plugin call _julia, evalqui "using Pkg"
-      plugin call _julia, evalqui `"st_local("notinstalled", string(Int(!("`namelist'" in keys(Pkg.project().dependencies)))))"'
+      plugin call _julia, eval `"Int(!("`namelist'" in keys(Pkg.project().dependencies)))"'
+      local notinstalled: copy local __jlans
       if !`notinstalled' & "`minver'"!="" plugin call _julia, eval `"length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])"'
       if `notinstalled' | 0`__jlans' {
         di as txt "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes." _n 
@@ -168,7 +169,8 @@ program define jl, rclass
       if `"`using'"'=="" {
         _assert `:word count `namelist''==1, msg("Just specify one source DataFrame.") rc(198) 
         local source `namelist'
-        plugin call _julia, evalqui `"st_local("cols", join(names(`source'), " "))"'
+        plugin call _julia, eval `"join(names(`source'), " ")"'
+        local cols: copy local __jlans
       }
       else {
         local source `using'
@@ -247,7 +249,8 @@ program define jl, rclass
           _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
         }
       if "`replace'"=="" confirm new var `namelist'
-      plugin call _julia, evalqui `"st_local("type", stataplugininterface.statatypes(`source', "`cols'"))"'
+      plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
+      local type: copy local __jlans
       local ncols: word count `cols'
       forvalues v=1/`ncols' {
         local type: word `v' of `types'
@@ -256,8 +259,8 @@ program define jl, rclass
         cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
         plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
         if `__jlans' {
-          plugin call _julia, evalqui `"st_local("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "))"'
-          label define `name' `=subinstr(`"`labeldef'"', "%", `"""', .)', replace
+          plugin call _julia, eval `"join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " ")"'
+          label define `name' `=subinstr(`"`__jlans'"', "%", `"""', .)', replace
           label values `name' `name'
         }
       }
@@ -267,9 +270,10 @@ program define jl, rclass
        syntax name, [source(string asis)]
 
        if `"`source'"'=="" local source `namelist'
-       plugin call _julia, evalqui `"st_local("rows", string(size(`source',1)))"'
-       plugin call _julia, evalqui `"st_local("cols", string(size(`source',2)))"'
-       mat `namelist' = J(`rows', `cols', .)
+       plugin call _julia, eval `"size(`source',1)"'
+       local rows: copy local __jlans
+       plugin call _julia, eval `"size(`source',2)"'
+       mat `namelist' = J(`rows', `__jlans', .)
        plugin call _julia, GetMatFromMat `namelist' `"`source'"'
     }
     else if `"`cmd'"'=="PutMatToMat" {

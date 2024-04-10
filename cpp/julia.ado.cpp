@@ -64,7 +64,8 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
     int8_t (*jl_unbox_bool)(jl_value_t*);
     float (*jl_unbox_float32)(jl_value_t*);
     double (*jl_unbox_float64)(jl_value_t*);
-    int64_t (*jl_unbox_int64)(jl_value_t*);
+    int64_t(*jl_unbox_int64)(jl_value_t*);
+    void* (*jl_unbox_voidpointer)(jl_value_t*);
     jl_value_t* (*jl_exception_occurred)(void);
     jl_value_t* (*jl_call2)(jl_function_t*, jl_value_t*, jl_value_t*);
     jl_value_t* (*jl_call3)(jl_function_t*, jl_value_t*, jl_value_t*, jl_value_t*);
@@ -82,6 +83,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_unbox_int64        julia_fptrs.jl_unbox_int64
 #define JL_unbox_float32      julia_fptrs.jl_unbox_float32
 #define JL_unbox_float64      julia_fptrs.jl_unbox_float64
+#define JL_unbox_voidpointer      julia_fptrs.jl_unbox_voidpointer
 #define JL_string_ptr         julia_fptrs.jl_string_ptr
 #define JL_exception_occurred julia_fptrs.jl_exception_occurred
 #define JL_call2              julia_fptrs.jl_call2
@@ -91,6 +93,9 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_pchar_to_string    julia_fptrs.jl_pchar_to_string
 #define JL_parse_opts         julia_fptrs.jl_parse_opts
 #define JL_get_field          julia_fptrs.jl_get_field
+
+size_t (*JL_nrows)(jl_value_t*), (*JL_ncols)(jl_value_t*);  // will point to Julia functions x->size(x,1), x->size(x,2)
+jl_value_t* (*JL_unsafe_makedouble)(jl_value_t*);  // will point to Julia function x->convert(Matrix{Float64}, x)
 
 #if SYSTEM==STWIN32
 #include "windows.h"
@@ -122,7 +127,8 @@ int load_julia(const char* fulllibpath, const char* libdir) {
     JL_unbox_bool = (int8_t (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_bool");
     JL_unbox_float32 = (float (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_float32");
     JL_unbox_float64 = (double (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_float64");
-    JL_unbox_int64 = (int64_t (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_int64");
+    JL_unbox_int64 = (int64_t(*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_int64");
+    JL_unbox_voidpointer = (void * (*)(jl_value_t*))GetProcAddress(hDLL, "jl_unbox_voidpointer");
     JL_string_ptr = (const char * (*)(jl_value_t*))GetProcAddress(hDLL, "jl_string_ptr");
     JL_exception_occurred = (jl_value_t * (*) (void))GetProcAddress(hDLL, "jl_exception_occurred");
     JL_call2 = (jl_value_t * (*)(jl_function_t*, jl_value_t*, jl_value_t*))GetProcAddress(hDLL, "jl_call2");
@@ -227,7 +233,7 @@ string command = "";  // accumulator for single commands potentially spread acro
 int8_t session_incomplete=0, command_incomplete=0;
 
 
-STDLL_void st_matrix(char* stmatname, char* jlmatname) {
+STDLL_void copymatS2J(char* stmatname, char* jlmatname) {
     ST_int nrows = SF_row(stmatname);
     ST_int ncols = SF_col(stmatname);
     jl_value_t* X = JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nrows) + "," + to_string(ncols) + ")");  // no more Julia calls till we're done with X, so GC-safe
@@ -241,6 +247,16 @@ STDLL_void st_matrix(char* stmatname, char* jlmatname) {
         }
 }
 
+STDLL_void copymatJ2S(jl_value_t* jlmat, char* stmatname) {
+    size_t nrows = JL_nrows(jlmat);
+    size_t ncols = JL_ncols(jlmat);
+
+    double* px = (double*)jl_array_data(JL_unsafe_makedouble(jlmat));
+
+    for (ST_int i = 1; i <= ncols; i++)
+        for (ST_int j = 1; j <= nrows; j++)
+            SF_mat_store(stmatname, j, i, *px++);
+}
 
 STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, ST_int in1, ST_int in2, char* touse, char* jlmatname, char nomissing) {
     double* px = (double*)jl_array_data(JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(nvars) + ")"));
@@ -330,6 +346,10 @@ STDLL stata_call(int argc, char* argv[])
             JL_eval("using REPL");
             JL_eval("const _Stata_io = IOBuffer()");
             JL_eval("const _Stata_context = IOContext(_Stata_io, :limit=>true)");
+
+            JL_nrows = (size_t(*)(jl_value_t*)) JL_unbox_voidpointer(JL_eval_string("@cfunction(x->Csize_t(size(x,1)), Csize_t, (Any,))"));
+            JL_ncols = (size_t(*)(jl_value_t*)) JL_unbox_voidpointer(JL_eval_string("@cfunction(x->Csize_t(size(x,2)), Csize_t, (Any,))"));
+            JL_unsafe_makedouble = (jl_value_t * (*)(jl_value_t*)) JL_unbox_voidpointer(JL_eval_string("@cfunction(x->convert(Array{Float64},x), Any, (Any,))"));
 
             int8max = numeric_limits<int8_t>::max();
             int16max = numeric_limits<int16_t>::max();
@@ -701,13 +721,7 @@ STDLL stata_call(int argc, char* argv[])
         // argv[1] = Stata matrix name
         // argv[2] = Julia matrix name
         if (!strcmp(argv[0], "GetMatFromMat")) {
-            size_t nrows = (size_t)JL_unbox_int64(JL_eval("size(" + string(argv[2]) + ",1)"));
-            size_t ncols = (size_t)JL_unbox_int64(JL_eval("size(" + string(argv[2]) + ",2)"));
-
-            double* px = (double*)jl_array_data(JL_eval("let x=" + string(argv[2]) + "; eltype(x) == Float64 ? x : Array{Float64}(x)end"));
-            for (ST_int i = 1; i <= ncols; i++)
-                for (ST_int j = 1; j <= nrows; j++)
-                    SF_mat_store(argv[1], j, i, *px++);
+            copymatJ2S(JL_eval(argv[2]), argv[1]);
             return 0;
         }
 
@@ -715,7 +729,7 @@ STDLL stata_call(int argc, char* argv[])
         // argv[1] = Stata matrix name
         // argv[2] = Julia destination matrix; any existing matrix of that name will be overwritten
         if (!strcmp(argv[0], "PutMatToMat")) {
-            st_matrix(argv[1], argv[2]);
+            copymatS2J(argv[1], argv[2]);
             return 0;
         }
     }
