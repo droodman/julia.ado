@@ -3,13 +3,14 @@
 module stataplugininterface
 export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, 
        SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_scal_save, SF_display, SF_error, 
-       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_local, st_view
+       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_view, st_local, st_global
 
 using DataFrames, CategoricalArrays
 
 global const dllpath = Ref{String}(raw"c:\ado\plus\j\jl.plugin")  # where to look for plugin with accessible wrappers for Stata interface functions
-
 setdllpath(s::String) = (dllpath[] = s)
+
+global macrobuf = Vector{Int8}(undef, 15_480_200+1)  # can hold maximum-sized Stata macro
 
 
 """
@@ -208,15 +209,14 @@ function SF_mat_el(mat::AbstractString, i::Integer, j::Integer)
 end
 
 """
-    SF_macro_use(mac::AbstractString, maxlen::Integer)
+    SF_macro_use(mac::AbstractString)
 
-Returns the first maxlen characters of Stata macro mac. Local macros can be accessed prefixing their names with "_".
+Return Stata global macro mac.
 """
-function SF_macro_use(mac::AbstractString, maxlen::Integer)
-  s = pointer(Vector{Int8}(undef,maxlen+1))
-  rc = @ccall dllpath[].jlSF_macro_use(mac::Cstring, s::Cstring, maxlen::Cint)::Cint 
+function SF_macro_use(mac::AbstractString)
+  rc = @ccall dllpath[].jlSF_macro_use(mac::Cstring, pointer(macrobuf)::Cstring, 15_480_200::Cint)::Cint 
   rc!=0 && throw(rc)
-  GC.@preserve s unsafe_string(Cstring(s)) 
+  unsafe_string(Cstring(pointer(macrobuf)))
 end
 
 """
@@ -231,6 +231,16 @@ function SF_scal_use(scal::AbstractString)
   z[] 
 end
 
+
+"""
+    st_global(mac::AbstractString)::String
+    st_global(mac::AbstractString, tosave::AbstractString)
+
+Reads or writes the Stata global macro named mac.
+"""
+st_global(mac::AbstractString) = SF_macro_use(mac)
+st_global(mac::AbstractString, tosave::AbstractString) = SF_macro_save(mac, tosave)
+
 """
     st_local(mac::AbstractString, tosave::AbstractString)
 
@@ -240,13 +250,13 @@ function st_local(mac::AbstractString, tosave::AbstractString)
     rc = @ccall dllpath[].jlSF_macro_save(("_"*mac)::Cstring, tosave::Cstring)::Cint
     rc!=0 && throw(rc)
     mac ∉ Set(("___jlans","___jlcomplete")) &&
-        SF_macro_save("___jllocals", SF_macro_use("___jllocals", 15_480_200) * " " * mac)  # add to Stata local "locals"
+        SF_macro_save("___jllocals", SF_macro_use("___jllocals") * " " * mac)  # add to Stata local "locals"
     nothing
 end
 
 """
     st_matrix(matname::AbstractString)::Matrix{Float64}
-    st_matrix(matname::AbstractString, jlmat::AbstractMatrix{<:Number})::Matrix{Float64}
+    st_matrix(matname::AbstractString, jlmat::AbstractMatrix{<:Number})
 
 Returns or assigns to the Stata matrix of the given name. For assignment, large-enough Stata matrix must already exist.
 """
@@ -264,7 +274,7 @@ end
     st_numscalar(scalarname::AbstractString)::Float64
     st_numscalar(scalarname::AbstractString, val::Number)
 
-One-argument version is the same as `SF_scal_use()`. Two-argument version is the same as SF_scal_use
+Reads or writes Stata scalar.
 """
 st_numscalar(scalarname) = SF_scal_use(scalarname);
 st_numscalar(scalarname, val) = begin SF_scal_save(scalarname, val); nothing end

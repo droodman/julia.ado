@@ -346,6 +346,7 @@ STDLL stata_call(int argc, char* argv[])
             JL_eval("using REPL");
             JL_eval("const _Stata_io = IOBuffer()");
             JL_eval("const _Stata_context = IOContext(_Stata_io, :limit=>true)");
+            JL_eval("const _Stata_stdout = deepcopy(stdout)");
 
             JL_nrows = (size_t(*)(jl_value_t*)) JL_unbox_voidpointer(JL_eval_string("@cfunction(x->Csize_t(size(x,1)), Csize_t, (Any,))"));
             JL_ncols = (size_t(*)(jl_value_t*)) JL_unbox_voidpointer(JL_eval_string("@cfunction(x->Csize_t(size(x,2)), Csize_t, (Any,))"));
@@ -400,9 +401,9 @@ STDLL stata_call(int argc, char* argv[])
                     else {
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
                         if (noisily) {
-                            JL_eval("_Stata_stdout = redirect_stdout(); _Stata_task=@async read(_Stata_stdout)");
+                            JL_eval("_Stata_restdout = redirect_stdout(); _Stata_task=@async read(_Stata_restdout)");
                             JL_eval("ans = eval(REPL.softscope(Meta.parse(raw\"\"\" " + session + " \"\"\")))");
-                            JL_eval("close(_Stata_stdout); print(_Stata_io, String(fetch(_Stata_task)))");
+                            JL_eval("close(_Stata_restdout); print(_Stata_io, String(fetch(_Stata_task))); redirect_stdout(_Stata_stdout)");
                             SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("!isnothing(ans) && show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
                         }
                         else
@@ -587,7 +588,7 @@ STDLL stata_call(int argc, char* argv[])
         if (nomissing || !strcmp(argv[0], "GetVarsFromDF")) {
             string dfname = string(argv[1]);
 
-            size_t nobs = (size_t)JL_unbox_int64(JL_eval("size(" + dfname + ",1)"));
+            size_t nobs = JL_nrows(JL_eval(dfname));
 
             if (!nobs) return 0;
 
@@ -681,17 +682,14 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "GetVarsFromMat": copy from Julia matrix into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
         // argv[1] = matrix name
+        // argv[2] = null string for full sample copy (no if/in clause)
+
         if (!strcmp(argv[0], "GetVarsFromMat")) {
-            string dfname = string(argv[1]);
-
-            size_t nobs  = (size_t)JL_unbox_int64(JL_eval("size(" + dfname + ",1)"));
-            size_t ncols = (size_t)JL_unbox_int64(JL_eval("size(" + dfname + ",2)"));
-
-            if (SF_nvars() < ncols)
-                ncols = SF_nvars();
-
-            jl_value_t* X = JL_eval("let x=" + dfname + "; eltype(x) == Float64 ? x : Array{Float64}(x) end");  // no more Julia calls till we're done with X, so GC-safe
-            double* px = (double*)jl_array_data(X);
+            jl_value_t* mat = JL_eval(argv[1]);
+            size_t nobs = JL_nrows(mat);
+            size_t ncols = JL_ncols(mat);
+            if (SF_nvars() < ncols) ncols = SF_nvars();
+            double* px = (double*)jl_array_data(JL_unsafe_makedouble(mat));  // no more Julia calls till we're done with X, so GC-safe
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(ncols, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -705,8 +703,12 @@ STDLL stata_call(int argc, char* argv[])
                     double* pxj = px + i * nobs;
                     double* _pxj = pxj + nobs;
                     ST_int ip1 = i + 1;
-                    for (ST_int j = SF_in1(); j <= SF_in2() && pxj < _pxj; j++)
-                        if (SF_ifobs(j))
+                    if (*argv[2]) {
+                        for (ST_int j = SF_in1(); j <= SF_in2() && pxj < _pxj; j++)
+                            if (SF_ifobs(j))
+                                SF_vstore(ip1, j, *pxj++);
+                    } else
+                        for (ST_int j = 1; pxj < _pxj; j++)
                             SF_vstore(ip1, j, *pxj++);
                 }
 #if SYSTEM==APPLEMAC

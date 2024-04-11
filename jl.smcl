@@ -48,7 +48,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {phang}{cmd:jl use} [{varlist}] {cmd:using} {it:dataframename}, [{opt clear}]{p_end}
 
 {phang}
-{cmd:jl save} [{it:dataframename}], [{opt nolab:el} {opt nomiss:ing} {opt double:only}]
+{cmd:jl save} {it:dataframename}, [{opt nolab:el} {opt nomiss:ing} {opt double:only}]
 
 {phang}
 {cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)} {opt nolab:el} {opt nomiss:ing} {opt double:only}]
@@ -72,7 +72,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl SetEnv} [{it:name}]
 
 {phang}
-{cmd:jl GetEnv}
+{cmd:jl GetEnv} [{it:name}]
 
 {phang}
 {cmd:jl AddPkg} {it:name}, [{opt min:ver(string)}]
@@ -306,16 +306,16 @@ and written with Julia commands.
 {synopt:{bf:SV_missval()}}Stata floating-point value for missing{p_end}
 {synopt:{bf:SF_vstore(i::Int, j::Int, val::Real)}}Set observation j of variable i to val (numeric){p_end}
 {synopt:{bf:SF_sstore(i::Int, j::Int, s::String)}}Set observation j of variable i to s (string) {p_end}
-{synopt:{bf:SF_vdata(i::Int, j::Int)}}Get observation j of variable i (numeric){p_end}
-{synopt:{bf:SF_sdata(i::Int, j::Int)}}Get observation j of variable i (string){p_end}
+{synopt:{bf:SF_vdata(i::Int, j::Int)}}Return observation j of variable i (numeric){p_end}
+{synopt:{bf:SF_sdata(i::Int, j::Int)}}Return observation j of variable i (string){p_end}
 {synopt:{bf:SF_macro_save(mac::String, tosave::String)}}Set macro value{p_end}
-{synopt:{bf:SF_macro_use(mac::String)}}Get macro mac{p_end}
+{synopt:{bf:SF_macro_use(mac::String, maxlen::Int)}}First maxlen characters of macro mac{p_end}
 {synopt:{bf:SF_scal_save(scal::String, val::Real)}}Set scalar value{p_end}
 {synopt:{bf:SF_scal_use(scal::String)}}Get scalar scal{p_end}
 {synopt:{bf:SF_row(mat::String)}}Number of rows of matrix mat{p_end}
 {synopt:{bf:SF_col(mat::String)}}Number of columns of matrix mat{p_end}
 {synopt:{bf:SF_mat_store(mat::String, i::Int, j::Int, val::Real)}}mat[i,j] = val{p_end}
-{synopt:{bf:SF_mat_el(mat::String, i::Int, j::Int)}}Get mat[i,j]{p_end}
+{synopt:{bf:SF_mat_el(mat::String, i::Int, j::Int)}}Return mat[i,j]{p_end}
 {synopt:{bf:SF_display(s::String)}}Print to Stata results window{p_end}
 {synopt:{bf:SF_error(s::String)}}Print error to Stata results window{p_end}
 

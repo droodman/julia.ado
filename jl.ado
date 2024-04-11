@@ -72,7 +72,6 @@ program define assure_julia_started
       di as err `"Installation via {browse "https://github.com/JuliaLang/juliaup#installation":juliaup} is recommended."'
       exit 198
     }
-    global julia_loaded 1  // set now to prevent infinite loop from following jl calls!
  
     plugin call _julia, eval `"Int(VERSION < v"1.9.4")"'
     if `__jlans' {
@@ -83,8 +82,9 @@ program define assure_julia_started
     }
 
     cap noi {
-      jl AddPkg DataFrames, minver(1.6.1)
-      jl AddPkg CategoricalArrays, minver(0.10.8)
+      plugin call _julia, evalqui "using Pkg"
+      AddPkg DataFrames, minver(1.6.1)
+      AddPkg CategoricalArrays, minver(0.10.8)
       plugin call _julia, evalqui "using DataFrames, CategoricalArrays"
 
       qui findfile stataplugininterface.jl
@@ -93,7 +93,95 @@ program define assure_julia_started
       qui findfile jl.plugin
       plugin call _julia, evalqui `"stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))"'
     }
-    if _rc global julia_loaded
+    global julia_loaded = !_rc
+  }
+end
+
+cap program drop AddPkg
+program define AddPkg
+  syntax name, [MINver(string)]
+  plugin call _julia, eval `"Int(!("`namelist'" in keys(Pkg.project().dependencies)))"'
+  local notinstalled: copy local __jlans
+  if !`notinstalled' & "`minver'"!="" plugin call _julia, eval `"length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])"'
+  if `notinstalled' | 0`__jlans' {
+    di as txt "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes." _n 
+    mata displayflush() 
+    cap plugin call _julia, evalqui `"Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))"'
+    if _rc {
+      di as err _n "Failed to update the Julia package `namelist'."
+      di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.update("`namelist'")}"'
+      exit 198
+    }
+  }
+end
+
+cap program drop GetVarsFromDF
+program define GetVarsFromDF
+  syntax namelist [if] [in], [source(string) replace COLs(string asis) noMISSing]
+  if `"`source'"'=="" local source df
+  if `"`cols'"'=="" local cols `namelist'
+    else {
+      confirm names `cols'
+      _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
+    }
+  if "`replace'"=="" confirm new var `namelist'
+  plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
+  local types `__jlans'
+  local ncols: word count `cols'
+  forvalues v=1/`ncols' {
+    local type: word `v' of `types'
+    local col : word `v' of `cols'
+    local name: word `v' of `namelist'
+    cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
+    plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
+    if `__jlans' {
+      plugin call _julia, evalqui `"st_local("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "))"'
+      label define `name' `=subinstr(`"`labeldef'"', "%", `"""', .)', replace
+      label values `name' `name'
+    }
+  }
+  plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
+end
+
+cap program drop PutVarsToDF
+program define PutVarsToDF
+  syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing noLABel]
+  if `"`destination'"'=="" local destination df
+    else confirm names `destination'
+  local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
+  if `"`cols'"'=="" unab cols: `varlist'
+  else {
+    confirm names `cols'
+    _assert `:word count `cols''!=`ncols', msg("Source and destination variable lists different lengths.") rc(198) 
+  }
+  if "`doubleonly'"=="" {
+    foreach col in `cols' {
+      local type: type `col'
+      local types `types' `=cond(substr("`type'",1,3)=="str", "str", "`type'")'
+    }
+  }
+  else local types = "double " * `ncols'
+  if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
+
+  plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"'
+
+  if "`missing'"=="" plugin call _julia, evalqui `"stataplugininterface.NaN2missing(`destination')"'
+  if "`doubleonly'"!="" plugin call _julia, evalqui `"rename!(`destination', vec(split("`cols'")))"'
+  else if "`label'"=="" {
+    foreach col in `cols' {
+      local labname: value label `col'
+      if "`labname'" != "" {
+        local recodecmd
+        qui levels `col'
+        foreach l in `r(levels)' {
+          local lab: label(`col') `l'
+          if "`lab'"!="" {
+            local recodecmd `recodecmd', `l'=>raw"`lab'"
+          }
+        }
+        cap noi plugin call _julia, evalqui `"`destination'.`col' = CategoricalVector(recode(`destination'.`col' `recodecmd'))"'
+      }
+    }        
   }
 end
 
@@ -131,36 +219,23 @@ program define jl, rclass
 
     assure_julia_started
 
-    if `"`cmd'"'=="reset" plugin call _julia, reset
-    else if inlist(`"`cmd'"',"SetEnv","GetEnv") {
+    if inlist(`"`cmd'"',"SetEnv","GetEnv") {
       if "`cmd'"=="SetEnv" {
-        jl, qui: using Pkg; Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))  // move to an environment specific to this package
-        jl AddPkg DataFrames
-        jl AddPkg CategoricalArrays
+        plugin call _julia, evalqui `"Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))"'  // move to an environment specific to this package
+        AddPkg DataFrames
+        AddPkg CategoricalArrays
       }
       plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
-      return local env: copy local __jlans
+      local __jlans `__jlans'  // strip quotes
+      return local env: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.active_project())"'
-      return local envdir: copy local __jlans
+      local __jlans `__jlans'  // strip quotes
+      return local envdir: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.load_path_expand("@v#.#"))"'
-      di as txt "Current package environment: `return(env)'`=cond("`return(envdir)'"=="`__jlans'"," (default)","")', at `return(envdir)'"
+      di as txt `"Current package environment: `return(env)'`=cond("`return(envdir)'"=="`__jlans'"," (default)","")', at `return(envdir)'"'
     }
     else if `"`cmd'"'=="AddPkg" {
-      syntax name, [MINver(string)]
-      plugin call _julia, evalqui "using Pkg"
-      plugin call _julia, eval `"Int(!("`namelist'" in keys(Pkg.project().dependencies)))"'
-      local notinstalled: copy local __jlans
-      if !`notinstalled' & "`minver'"!="" plugin call _julia, eval `"length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])"'
-      if `notinstalled' | 0`__jlans' {
-        di as txt "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes." _n 
-        mata displayflush() 
-        plugin call _julia, evalqui `"Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))"'
-        if _rc {
-          di as err _n "Failed to update the Julia package `namelist'."
-          di as err "You should be able to install it by running Julia and typing:" _n `"{cmd:using Pkg; Pkg.update("`namelist'")}"'
-          exit 198
-        }
-      }
+      AddPkg `0'
     }
     else if `"`cmd'"'=="use" {
       syntax namelist [using/], [clear]
@@ -170,7 +245,7 @@ program define jl, rclass
         _assert `:word count `namelist''==1, msg("Just specify one source DataFrame.") rc(198) 
         local source `namelist'
         plugin call _julia, eval `"join(names(`source'), " ")"'
-        local cols: copy local __jlans
+        local cols `__jlans'
       }
       else {
         local source `using'
@@ -178,52 +253,15 @@ program define jl, rclass
       }
       plugin call _julia, eval "size(`source',1)"
       qui set obs `__jlans'
-      jl GetVarsFromDF `cols', source(`source') 
+      GetVarsFromDF `cols', source(`source') 
     }
     else if `"`cmd'"'=="PutVarsToDF" {
-      syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing noLABel]
-      if `"`destination'"'=="" local destination df
-        else confirm names `destination'
-      local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
-      if `"`cols'"'=="" unab cols: `varlist'
-      else {
-        confirm names `cols'
-        _assert `:word count `cols''!=`ncols', msg("Source and destination variable lists different lengths.") rc(198) 
-      }
-      if "`doubleonly'"=="" {
-        foreach col in `cols' {
-          local type: type `col'
-          local types `types' `=cond(substr("`type'",1,3)=="str", "str", "`type'")'
-        }
-      }
-      else local types = "double " * `ncols'
-      if "`doubleonly'"=="" local dfcmd `destination' = DataFrame([n=>Vector{stataplugininterface.S2Jtypedict[t]}(undef,%i) for (n,t) in zip(eachsplit("`cols'"), eachsplit("`types'"))])
-
-      plugin call _julia `varlist' `if' `in', PutVarsToDF`missing' `"`destination'"' `"`dfcmd'"' `"`if'`in'"'
-
-      if "`missing'"=="" jl, qui: stataplugininterface.NaN2missing(`destination')
-      if "`doubleonly'"!="" jl, qui: rename!(`destination', vec(split("`cols'")))
-      else if "`label'"=="" {
-        foreach col in `cols' {
-          local labname: value label `col'
-          if "`labname'" != "" {
-            local recodecmd
-            qui levels `col'
-            foreach l in `r(levels)' {
-              local lab: label(`col') `l'
-              if "`lab'"!="" {
-                local recodecmd `recodecmd', `l'=>raw"`lab'"
-              }
-            }
-            cap noi jl, qui: `destination'.`col' = CategoricalVector(recode(`destination'.`col' `recodecmd'))
-          }
-        }        
-      }
+      PutVarsToDF `0'
     }
     else if `"`cmd'"'=="save" {
       syntax [namelist(max=1)], [NOLABel DOUBLEonly NOMISSing]
       if "`namelist'"=="" local namelist df
-      jl PutVarsToDF, dest(`namelist') `nolabel' `doubleonly' `nomissing'
+      PutVarsToDF, dest(`namelist') `nolabel' `doubleonly' `nomissing'
       di as txt "Data saved to DataFrame `namelist' in Julia"
     }
     else if `"`cmd'"'=="PutVarsToMat" {
@@ -238,33 +276,10 @@ program define jl, rclass
       foreach var in `namelist' {
         cap gen double `var' = .
       }
-      plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"'
+      plugin call _julia `namelist' `if' `in', GetVarsFromMat `"`source'"' `"`if'`in'"'
     }
     else if `"`cmd'"'=="GetVarsFromDF" {
-      syntax namelist [if] [in], [source(string) replace COLs(string asis) noMISSing]
-      if `"`source'"'=="" local source df
-      if `"`cols'"'=="" local cols `namelist'
-        else {
-          confirm names `cols'
-          _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
-        }
-      if "`replace'"=="" confirm new var `namelist'
-      plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
-      local type: copy local __jlans
-      local ncols: word count `cols'
-      forvalues v=1/`ncols' {
-        local type: word `v' of `types'
-        local col : word `v' of `cols'
-        local name: word `v' of `namelist'
-        cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
-        plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
-        if `__jlans' {
-          plugin call _julia, eval `"join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " ")"'
-          label define `name' `=subinstr(`"`__jlans'"', "%", `"""', .)', replace
-          label values `name' `name'
-        }
-      }
-      plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
+      GetVarsFromDF `0'
     }
     else if `"`cmd'"'=="GetMatFromMat" {
        syntax name, [source(string asis)]
@@ -308,7 +323,7 @@ program define jl, rclass
           di as txt "{hline}"
           continue, break
         }
-        jl reset  // clear any previous command lines
+        plugin call _julia, reset  // clear any previous command lines
         cap noi jlcmd `before':`cmdline'
         if 0`r(exit)' continue, break
         foreach macro in `locals' {
