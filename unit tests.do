@@ -3,7 +3,7 @@ set seed 123918231
 jl: SF_is_missing(1)
 
 global mac 22
-jl: SF_macro_use("mac",20)
+jl: SF_macro_use("mac")
 jl: SF_macro_save("mac","asda")
 jl: SF_macro_save("newmac","xcv")
 di "$mac", "$newmac"

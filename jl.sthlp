@@ -340,7 +340,7 @@ and written with Julia commands.
 {p2colreset}{...}
 
 {pstd}
-{cmd:st_local()} only allows one to write locals, not read them. However, one-line {cmd:jl:} commands
+Used with {cmd:jl}, but not {cmd:_jl}, {cmd:st_local()} allows one to {it:write} locals. One-line {cmd:jl:} and {cmd:_jl:} commands
 can access locals by quoting them, such as with {cmd:jl: X = st_data("`varnames'")}
 
 

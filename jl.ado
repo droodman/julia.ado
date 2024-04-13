@@ -225,18 +225,18 @@ program define jl, rclass
         AddPkg DataFrames
         AddPkg CategoricalArrays
       }
-      plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
-      local __jlans `__jlans'  // strip quotes
       return local env: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.active_project())"'
       local __jlans `__jlans'  // strip quotes
       return local envdir: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.load_path_expand("@v#.#"))"'
-      di as txt `"Current package environment: `return(env)'`=cond("`return(envdir)'"=="`__jlans'"," (default)","")', at `return(envdir)'"'
+	  if "`return(envdir)'" != `__jlans' {
+	  	plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
+		return local env `__jlans'  // strip quotes
+	  }
+      di as txt `"Current package environment: `=cond("`return(env)'"=="","(default)","`return(env)'")', at `return(envdir)'"'
     }
-    else if `"`cmd'"'=="AddPkg" {
-      AddPkg `0'
-    }
+    else if `"`cmd'"'=="AddPkg" AddPkg `0'
     else if `"`cmd'"'=="use" {
       syntax namelist [using/], [clear]
       if c(changed) & "`clear'"=="" error 4
