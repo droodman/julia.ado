@@ -1,6 +1,6 @@
 * Derived from https://github.com/FixedEffects/FixedEffectModels.jl/blob/master/benchmark/benchmark.md
 
-scalar N = 100000000
+scalar N = 10000000
 scalar K = 100
 set obs `=N'
 gen id1 = runiformint(1, N/K)

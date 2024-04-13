@@ -3,7 +3,8 @@
 module stataplugininterface
 export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, 
        SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_scal_save, SF_display, SF_error, 
-       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_view, st_local, st_global
+       SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_view, st_local, st_global,
+       st_nobs, st_nvar
 
 using DataFrames, CategoricalArrays
 
@@ -58,13 +59,27 @@ Returns the number of observations in the Stata data set.
 SF_nobs() = @ccall dllpath[].jlSF_nobs()::Cint
 
 """
+    st_nobs()
+
+Returns the number of observations in the Stata data set.
+"""
+st_nobs = SF_nobs
+
+"""
     SF_nvar()
 
 Returns the number of variables in the Stata data set.
 """
 SF_nvar() = @ccall dllpath[].jlSF_nvar()::Cint
-
 SF_nvars() = @ccall dllpath[].jlSF_nvars()::Cint
+
+"""
+    st_nvar()
+
+Returns the number of variables in the Stata data set.
+"""
+st_nvar = SF_nvar
+
 SF_ifobs(j::Integer) = @ccall dllpath[].jlSF_ifobs(j::Cint)::Cchar
 SF_in1()= @ccall dllpath[].jlSF_in1()::Cint
 SF_in2() = @ccall dllpath[].jlSF_in2()::Cint
@@ -284,7 +299,7 @@ st_numscalar(scalarname, val) = begin SF_scal_save(scalarname, val); nothing end
     st_data(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
     st_data(varnames::AbstractString, sample::Vector{Bool}=Bool[])::Matrix{Float64}
 
-Return one or more variables in a matrix. `scalarname` is a vector or space-delimited string of variable names.
+Return one or more variables in a matrix. `varnames` is a vector of strings or space-delimited string of variable names.
 """
 function st_data(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])
     ind = st_varindex.(varnames)
@@ -328,8 +343,13 @@ function NaN2missing(df::DataFrame)
     end
 end
 
-# view onto Stata column(s). S is Val(true) for subviews.
-struct st_view{S} <: AbstractMatrix{Float64}
+"""
+    st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
+    st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[])::Matrix{Float64}
+
+Return a matrix-like view onto one or more Stata variables. `varnames` is a vector of strings or space-delimited string of variable names.
+"""
+struct st_view{S} <: AbstractMatrix{Float64}  # S is Val(true) for subviews.
     nrows::Int64
     ncols::Int32
     varindex::Vector{Int32}
@@ -350,20 +370,22 @@ st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_view(split(v
 
 import Base.size, Base.length, Base.getindex, Base.setindex!
 size(v::st_view) = v.nrows, v.ncols
-getindex(v::st_view{Val(false)}, i::Integer, j::Integer) where T = SF_vdata(i, v.varindex[j])
-getindex(v::st_view{Val(true)}, i::Integer, j::Integer) where T = SF_vdata(v.sample[i], v.varindex[j])
-getindex(v::st_view, i::Integer) = getindex(v, i, 1)
-getindex(v::st_view, I::CartesianIndex{1}) = getindex(v, I[1], 1)
-getindex(v::st_view, I::CartesianIndex{2}) = getindex(v, I[1], I[2])
-function setindex!(v::st_view{Val(false)}, val::Number, i, j)
+@inline getindex(v::st_view{Val(false)}, i::Integer, j::Integer) where T = SF_vdata(i, v.varindex[j])
+@inline getindex(v::st_view{Val(true)}, i::Integer, j::Integer) where T = SF_vdata(v.sample[i], v.varindex[j])
+@inline getindex(v::st_view, i::Integer) = getindex(v, i, 1)
+@inline getindex(v::st_view, I::CartesianIndex{1}) = getindex(v, I[1], 1)
+@inline getindex(v::st_view, I::CartesianIndex{2}) = getindex(v, I[1], I[2])
+@inline function setindex!(v::st_view{Val(false)}, val::Number, i::Integer, j::Integer)
     SF_vstore(i, v.varindex[j], val)
     nothing
 end
-function setindex!(v::st_view{Val(true)}, val::Number, i, j)
+@inline function setindex!(v::st_view{Val(true)}, val::Number, i, j)
     SF_vstore(v.sample[i], v.varindex[j], val)
     nothing
 end
-setindex!(v::st_view, val::Number, i) = setindex!(v, val, i, 1)
+@inline setindex!(v::st_view, val::Number, i::Integer) = setindex!(v, val, i, 1)
+@inline setindex!(v::st_view, val::Number, I::CartesianIndex{1}) = setindex!(v, val, I[1], 1)
+@inline setindex!(v::st_view, val::Number, I::CartesianIndex{2}) = setindex!(v, val, I[1], I[2])
 end
 
 

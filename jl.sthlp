@@ -297,17 +297,16 @@ and written with Julia commands.
 {synoptline}
 {synopt:{bf:SF_nobs()}}Number of observations in Stata data set{p_end}
 {synopt:{bf:SF_nvar()}}Number of variables{p_end}
-{synopt:{bf:SF_varindex(s::String)}}Index in data set of variable named s{p_end}
 {synopt:{bf:SF_var_is_string(i::Int)}}Whether variable i is string{p_end}
 {synopt:{bf:SF_var_is_strl(i::Int)}}Whether variable i is a strL{p_end}
 {synopt:{bf:SF_var_is_binary(i::Int, j::Int)}}Whether observation i of variable j is a binary strL{p_end}
-{synopt:{bf:SF_sdatalen(i::Int, j::Int)}}String length of variable i, observation j{p_end}
+{synopt:{bf:SF_sdatalen(j::Int, i::Int)}}String length of variable i, observation j{p_end}
 {synopt:{bf:SF_is_missing()}}Whether a Float64 value is Stata missing{p_end}
 {synopt:{bf:SV_missval()}}Stata floating-point value for missing{p_end}
-{synopt:{bf:SF_vstore(i::Int, j::Int, val::Real)}}Set observation j of variable i to val (numeric){p_end}
-{synopt:{bf:SF_sstore(i::Int, j::Int, s::String)}}Set observation j of variable i to s (string) {p_end}
-{synopt:{bf:SF_vdata(i::Int, j::Int)}}Get observation j of variable i (numeric){p_end}
-{synopt:{bf:SF_sdata(i::Int, j::Int)}}Get observation j of variable i (string){p_end}
+{synopt:{bf:SF_vstore(j::Int, i::Int, val::Real)}}Set observation j of variable i to val (numeric){p_end}
+{synopt:{bf:SF_sstore(j::Int, i::Int, s::String)}}Set observation j of variable i to s (string) {p_end}
+{synopt:{bf:SF_vdata(j::Int, i::Int)}}Get observation j of variable i (numeric){p_end}
+{synopt:{bf:SF_sdata(j::Int, i::Int)}}Get observation j of variable i (string){p_end}
 {synopt:{bf:SF_macro_save(mac::String, tosave::String)}}Set macro value{p_end}
 {synopt:{bf:SF_macro_use(mac::String)}}Get macro mac{p_end}
 {synopt:{bf:SF_scal_save(scal::String, val::Real)}}Set scalar value{p_end}
@@ -319,6 +318,9 @@ and written with Julia commands.
 {synopt:{bf:SF_display(s::String)}}Print to Stata results window{p_end}
 {synopt:{bf:SF_error(s::String)}}Print error to Stata results window{p_end}
 
+{synopt:{bf:st_nobs()}}Number of observations in Stata data set; same as SF_nobs(){p_end}
+{synopt:{bf:st_nvar()}}Number of Stata variables; same as SF_nvar(){p_end}
+{synopt:{bf:st_varindex(s::String)}}Index in data set of variable named s{p_end}
 {synopt:{bf:st_global(mac::String)}}Get global macro mac{p_end}
 {synopt:{bf:st_global(mac::String, tosave::String)}}Set global macro mac{p_end}
 {synopt:{bf:st_local(mac::String, tosave::String)}}Set local macro mac{p_end}
