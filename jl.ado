@@ -230,11 +230,13 @@ program define jl, rclass
       local __jlans `__jlans'  // strip quotes
       return local envdir: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.load_path_expand("@v#.#"))"'
-	  if "`return(envdir)'" != `__jlans' {
-	  	plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
-		return local env `__jlans'  // strip quotes
-	  }
-      di as txt `"Current package environment: `=cond("`return(env)'"=="","(default)","`return(env)'")', at `return(envdir)'"'
+      local __jlans: subinstr local __jlans "\\" "\", all
+      if "`return(envdir)'" == `__jlans' return local env .
+      else {
+        plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
+        return local env `__jlans'  // strip quotes
+      }
+      di as txt `"Current environment: `=cond("`return(env)'"==".","(default)","`return(env)'")', at `return(envdir)'"'
     }
     else if `"`cmd'"'=="AddPkg" AddPkg `0'
     else if `"`cmd'"'=="use" {

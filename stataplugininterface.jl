@@ -1,5 +1,3 @@
-# see also https://www.stata.com/plugins
-
 module stataplugininterface
 export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs, SF_nvars, SF_nvar, SF_ifobs, SF_in1, SF_in2, SF_col, 
        SF_row, SF_is_missing, SF_missval, SF_vstore, SF_sstore, SF_mat_store, SF_macro_save, SF_scal_save, SF_display, SF_error, 

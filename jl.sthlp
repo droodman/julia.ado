@@ -45,7 +45,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 
 {phang}{cmd:jl use} {it:dataframename}, [{opt clear}]{p_end}
 {phang}-or-{p_end}
-{phang}{cmd:jl use} [{varlist}] {cmd:using} {it:dataframename}, [{opt clear}]{p_end}
+{phang}{cmd:jl use} {varlist} {cmd:using} {it:dataframename}, [{opt clear}]{p_end}
 
 {phang}
 {cmd:jl save} [{it:dataframename}], [{opt nolab:el} {opt nomiss:ing} {opt double:only}]
