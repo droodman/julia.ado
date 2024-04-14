@@ -10,7 +10,7 @@ ssc install julia
 ```
 
 ## Documentation
-After installing, type `help jl`. Also see the working paper in the /doc folder above.
+After installing, type `help jl`. Also see the [working paper](https://github.com/droodman/julia.ado/blob/master/doc/julia.pdf) in the /doc folder.
 
 ## Requirements
 * Julia 1.9.4 or later, installed following the instructions obtained via `help jl` after installing this pacakge.
