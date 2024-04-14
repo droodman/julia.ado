@@ -1,6 +1,6 @@
 # julia.ado
 This Stata package gives Stata users access to Julia. It contains three kinds of tools:
-1.  A "jl:" prefix command that lets you send single-line commands from the Stata prompt to Julia and see the results.
+1.  A `jl:` prefix command that lets you send single-line commands from the Stata prompt to Julia and see the results. Or, if typed by itself, `jl` starts an interactive Julia session in Stata.
 2.  Subcommands such as `jl save` and `jl use` for copying data between Julia and Stata.
 3.  Julia functions for reading and writing Stata variables, macros, matrices, and scalars.
 
@@ -8,6 +8,9 @@ This Stata package gives Stata users access to Julia. It contains three kinds of
 ```
 ssc install julia
 ```
+
+## Documentation
+After installing, type `help jl`. Also see the working paper in the /doc folder above.
 
 ## Requirements
 * Julia 1.9.4 or later, installed following the instructions obtained via `help jl` after installing this pacakge.
