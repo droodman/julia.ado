@@ -1,4 +1,4 @@
-*! jl 1.0.0 12 April 2024
+*! jl 1.0.1 24 April 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 * Version history at bottom
-
+  
 
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
@@ -426,4 +426,5 @@ program _julia, plugin using(jl.plugin)
 * 0.10.1 Fixed memory leak
 * 0.10.2 threads() option on start
 * 0.10.3 Bug fix for 0.10.2
-*  1.0.0 Add GetEnv, support for closing ";", and interactive mode
+* 1.0.0 Add GetEnv, support for closing ";", and interactive mode
+* 1.0.1 Drop confirm names on Julia source and destination matrices so they can be views or other things
