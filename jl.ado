@@ -147,7 +147,6 @@ cap program drop PutVarsToDF
 program define PutVarsToDF
   syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing noLABel]
   if `"`destination'"'=="" local destination df
-    else confirm names `destination'
   local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
   if `"`cols'"'=="" unab cols: `varlist'
   else {
@@ -190,7 +189,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 1.0.0
+    return local version 1.0.1
     exit
   }
 
@@ -268,12 +267,10 @@ program define jl, rclass
     }
     else if `"`cmd'"'=="PutVarsToMat" {
       syntax [varlist] [if] [in], DESTination(string) [noMISSing]
-      confirm names `destination'
       plugin call _julia `varlist' `if' `in', `cmd'`missing' `"`destination'"' `"`if'`in'"'
     }
     else if `"`cmd'"'=="GetVarsFromMat" {
       syntax namelist [if] [in], source(string asis) [replace]
-      confirm names `source'
       if "`replace'"=="" confirm new var `namelist'
       foreach var in `namelist' {
         cap gen double `var' = .

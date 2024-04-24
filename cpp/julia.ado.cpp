@@ -377,7 +377,7 @@ STDLL stata_call(int argc, char* argv[])
         if (!noisily || !strcmp(argv[0], "eval")) {
             if (argc > 1) {
                 if (noisily) {
-                    JL_eval("ans = " + string(argv[1]));
+                    JL_eval("ans=" + string(argv[1]));
                     SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("!isnothing(ans) && show(_Stata_context, MIME\"text/plain\"(), ans); String(take!(_Stata_io))")));
                 }
                 else
@@ -391,11 +391,11 @@ STDLL stata_call(int argc, char* argv[])
         noisily = strcmp(argv[0], "evalmultilinequi");
         if (!noisily || !strcmp(argv[0], "evalmultiline")) {
             if (argc > 1) {
-                command = command_incomplete ? command + " " + string(argv[1]) : string(argv[1]);
+                command = command_incomplete? command + " " + string(argv[1]) : string(argv[1]);
                 if (command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + command + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
                     SF_macro_save((char*)"___jlcomplete", (char*)"0");
                 else {
-                    session = session_incomplete ? session + "; " + command : command;
+                    session = session_incomplete? session + "; " + command : command;
                     if (session_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + session + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
                         SF_macro_save((char*)"___jlcomplete", (char*)"0");
                     else {
@@ -426,7 +426,7 @@ STDLL stata_call(int argc, char* argv[])
                 nobs = 0;
                 touse = (char*)malloc(SF_in2() - SF_in1() + 1);
                 char* tousej = touse;
-                for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+                for (ST_int j=SF_in1(); j<=SF_in2(); j++)
                     nobs += (*tousej++ = (char)SF_ifobs(j));
                 if (nobs == SF_nobs()) {
                     free(touse);

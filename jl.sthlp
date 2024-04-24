@@ -37,6 +37,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt SetEnv}}Switch to named package environment{p_end}
 {synopt:{opt GetEnv}}Get name of current package environment{p_end}
 {synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
+{synopt:{opt version}}Get version of installed {cmd:jl} package{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -60,7 +61,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl PutVarsToMat} [{varlist}] {ifin}, {opt dest:ination(string)}
 
 {phang}
-{cmd:jl GetVarsFromMat} {varlist} {ifin}, {opt source(string)}
+{cmd:jl GetVarsFromMat} {varlist} {ifin}, {opt source(string)} [replace]
 
 {phang}
 {cmd:jl PutMatToMat} {it:matname}, [{opt dest:ination(string)}]
@@ -76,6 +77,9 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 
 {phang}
 {cmd:jl AddPkg} {it:name}, [{opt min:ver(string)}]
+
+{phang}
+{cmd:jl version}
 
 
 {marker description}{...}
@@ -176,14 +180,14 @@ have a different effect than the same commands in the opposite order.
 This package is designed for 64-bit Windows, Linux, and macOS, the last on an Intel or Apple CPU. It requires 
 Julia 1.9.4 or higher. As documented {browse "https://github.com/JuliaLang/juliaup#installation":here}, the easiest way to
 install it in Windows is from the {browse "https://apps.microsoft.com/detail/9NJNWW8PVKMN":Microsoft Store}; and the 
-easiest way to install it in Linux and macOS is with the shell command:
+easiest way to install it in Linux and macOS is with this shell command from inside Stata, which is clickable:
 
-{pin}{cmd:curl -fsSL https://install.julialang.org | sh}
+{pin}{stata "! curl -fsSL https://install.julialang.org | sh -s -- -y"}
 
 {pstd}
 On Intel Macs, 
 {cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey). On computers not officially supported by those editions, one can use 
-the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade anyway--at your own risk.
+the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade--at your own risk.
 
 {pstd}
 After installing Julia, restart Stata for good measure.
@@ -266,17 +270,18 @@ variables will be created or, if {opt replace} is specified, overwritten, subjec
 
 {pstd}
 The {cmd:_jl:} prefix command is for programmers. It works the same as {cmd:jl:}, except that for the sake of speed it disables
-certain features of {cmd:jl:} that enhance the interactive Julia experience within Stata. These include showing output from {cmd:print()}
+certain features of {cmd:jl:} that enhance the interactive Julia experience within Stata. These include checking whether Julia is
+started and starting it if not, showing output from {cmd:print()}
 and other commands, not generating syntax errors partway through multi-line code blocks such as for loops, and 
 {browse "https://docs.julialang.org/en/v1/manual/variables-and-scoping/#local-scope":interpreting soft-scoped assignments as if in interactive mode}. The 
 time savings from {cmd:_jl:} can be small in absolute terms (~0.01 seconds per call). But it adds up in a program that issues many
-Julia commands.
+Julia commands. Warning: {cmd:_jl} can crash Stata if it is called before Julia is started via a {cmd:jl} command!
 
 
 {title:Stored results}
 
 {pstd}
-{cmd:jl:}, without the {opt qui:etly} option, stores the output in the macro {cmd:r(ans)}.
+{cmd:jl:} stores the output in the macro {cmd:r(ans)}. {cmd:jl version} returns the version number of the installed {cmd:jl} package in r(version).
 
 
 {title:Stata interface functions}
