@@ -371,7 +371,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "eval" or "evalqui": evaluate a Julia expression and return plaintext response in Stata local "ans"; slow if the return value is, e.g., a large array
+        // argv[0] = "eval" or "evalqui": evaluate a Julia expression and return plaintext response in Stata local "ans"
         // argv[1] = expression
         int8_t noisily = strcmp(argv[0], "evalqui");
         if (!noisily || !strcmp(argv[0], "eval")) {
@@ -386,7 +386,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "eval" or "evalqui": evaluate a Julia expression and return plaintext response in Stata local "ans"; slow if the return value is, e.g., a large array
+        // argv[0] = "evalmultiline" or "evalmultilinequi": evaluate a Julia expression and return plaintext response in Stata local "ans"
         // argv[1] = expression
         noisily = strcmp(argv[0], "evalmultilinequi");
         if (!noisily || !strcmp(argv[0], "evalmultiline")) {

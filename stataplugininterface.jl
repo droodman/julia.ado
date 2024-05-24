@@ -314,6 +314,53 @@ function st_data(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool
 end
 st_data(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_data(split(varnames), sample)
 
+"""
+    st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
+    st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[])::Matrix{Float64}
+
+Return a matrix-like view onto one or more Stata variables. `varnames` is a vector of strings or space-delimited string of variable names.
+"""
+struct st_view{S} <: AbstractMatrix{Float64}  # S is Val(true) for views with defined samples
+    nrows::Int64
+    ncols::Int32
+    varindex::Vector{Int32}
+    sample::Vector{Int64}
+end
+function st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])
+    ind = st_varindex.(varnames)
+    @assert !any(Bool ∘ SF_var_is_string, ind) "st_view() is for numeric variables"
+    if iszero(length(sample))
+        st_view{Val(false)}(SF_nobs(), length(varnames), ind, Int64[])
+    else
+        @assert iszero(length(sample)) || length(sample)==SF_nobs() "sample vector, if provided, must have same height as data set"
+        s = findall(sample)
+        st_view{Val(true)}(length(s), length(varnames), ind, s)
+    end
+end
+st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_view(split(varnames), sample)
+
+import Base.size, Base.getindex, Base.setindex!
+size(v::st_view) = v.nrows, v.ncols
+
+@inline getindex(v::st_view{Val(false)}, i::Integer, j::Integer) where T = SF_vdata(i, v.varindex[j])
+@inline getindex(v::st_view{Val(true)}, i::Integer, j::Integer) where T = SF_vdata(v.sample[i], v.varindex[j])
+@inline getindex(v::st_view, i::Integer) = getindex(v, i, 1)
+@inline getindex(v::st_view, I::CartesianIndex{1}) = getindex(v, I[1], 1)
+@inline getindex(v::st_view, I::CartesianIndex{2}) = getindex(v, I[1], I[2])
+
+@inline function setindex!(v::st_view{Val(false)}, val::Number, i::Integer, j::Integer)
+    SF_vstore(i, v.varindex[j], val)
+    nothing
+end
+@inline function setindex!(v::st_view{Val(true)}, val::Number, i, j)
+    SF_vstore(v.sample[i], v.varindex[j], val)
+    nothing
+end
+@inline setindex!(v::st_view, val::Number, i::Integer) = setindex!(v, val, i, 1)
+@inline setindex!(v::st_view, val::Number, I::CartesianIndex{1}) = setindex!(v, val, I[1], 1)
+@inline setindex!(v::st_view, val::Number, I::CartesianIndex{2}) = setindex!(v, val, I[1], I[2])
+
+# stuff called by jl.ado & jl.plugin
 const type2intDict = Dict(Int8=>1, Int16=>2, Int32=>3, Int64=>4, Float32=>5, Float64=>6, String=>7)
 const S2Jtypedict = Dict("float"=>Float32, "double"=>Float64, "byte"=>Int8, "int"=>Int16, "long"=>Int32, "str"=>String, "str1"=>Char);
 
@@ -341,49 +388,4 @@ function NaN2missing(df::DataFrame)
     end
 end
 
-"""
-    st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
-    st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[])::Matrix{Float64}
-
-Return a matrix-like view onto one or more Stata variables. `varnames` is a vector of strings or space-delimited string of variable names.
-"""
-struct st_view{S} <: AbstractMatrix{Float64}  # S is Val(true) for subviews.
-    nrows::Int64
-    ncols::Int32
-    varindex::Vector{Int32}
-    sample::Vector{Int64}
 end
-function st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])
-    ind = st_varindex.(varnames)
-    @assert !any(Bool ∘ SF_var_is_string, ind) "st_view() is for numeric variables"
-    if iszero(length(sample))
-        st_view{Val(false)}(SF_nobs(), length(varnames), ind, Int64[])
-    else
-        @assert iszero(length(sample)) || length(sample)==SF_nobs() "sample vector, if provided, must have same height as data set"
-        s = findall(sample)
-        st_view{Val(true)}(length(s), length(varnames), ind, s)
-    end
-end
-st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_view(split(varnames), sample)
-
-import Base.size, Base.length, Base.getindex, Base.setindex!
-size(v::st_view) = v.nrows, v.ncols
-@inline getindex(v::st_view{Val(false)}, i::Integer, j::Integer) where T = SF_vdata(i, v.varindex[j])
-@inline getindex(v::st_view{Val(true)}, i::Integer, j::Integer) where T = SF_vdata(v.sample[i], v.varindex[j])
-@inline getindex(v::st_view, i::Integer) = getindex(v, i, 1)
-@inline getindex(v::st_view, I::CartesianIndex{1}) = getindex(v, I[1], 1)
-@inline getindex(v::st_view, I::CartesianIndex{2}) = getindex(v, I[1], I[2])
-@inline function setindex!(v::st_view{Val(false)}, val::Number, i::Integer, j::Integer)
-    SF_vstore(i, v.varindex[j], val)
-    nothing
-end
-@inline function setindex!(v::st_view{Val(true)}, val::Number, i, j)
-    SF_vstore(v.sample[i], v.varindex[j], val)
-    nothing
-end
-@inline setindex!(v::st_view, val::Number, i::Integer) = setindex!(v, val, i, 1)
-@inline setindex!(v::st_view, val::Number, I::CartesianIndex{1}) = setindex!(v, val, I[1], 1)
-@inline setindex!(v::st_view, val::Number, I::CartesianIndex{2}) = setindex!(v, val, I[1], I[2])
-end
-
-

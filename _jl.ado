@@ -2,6 +2,8 @@
 cap program drop _jl
 program define _jl, rclass
   _on_colon_parse `0'
+  _assert strlen(`"`s(after)'"')<4991, rc(1003) msg("_jl command line longer than 4990 characters")
+  
   local qui = cond(substr(`"`s(after)'"', strlen(`"`s(after)'"'), 1) == ";", "qui", "")
   cap noi plugin call _julia `=cond(c(k),"*","")', eval`qui' `"`s(after)'"'
   
