@@ -18,7 +18,7 @@ After installing, type `help jl`. Also see the [working paper](https://github.co
   
 ## Examples
 
-```
+```julia
 . jl: "Hello world!"
 Hello world!
 
@@ -58,6 +58,3 @@ headroom      -334.021    399.55    -0.84    0.4060  -1130.7      462.658
 . display adjR2
 .20542069
 ```
-
-## Possible extensions
-1. Provide fuller Julia REPL experience.
