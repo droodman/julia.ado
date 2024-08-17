@@ -235,7 +235,8 @@ program define jl, rclass
         plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
         return local env `__jlans'  // strip quotes
       }
-      di as txt `"Current environment: `=cond("`return(env)'"==".","(default)","`return(env)'")', at `return(envdir)'"'
+      di as txt `"Current environment: `=cond("`return(env)'"==".","(default)","`return(env)'")', at `return(envdir)'"' _n
+      jlcmd: Pkg.status()
     }
     else if `"`cmd'"'=="AddPkg" AddPkg `0'
     else if `"`cmd'"'=="use" {

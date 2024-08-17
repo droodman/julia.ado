@@ -304,7 +304,7 @@ and written with Julia commands.
 {synopt:{bf:SF_nvar()}}Number of variables{p_end}
 {synopt:{bf:SF_var_is_string(i::Int)}}Whether variable i is string{p_end}
 {synopt:{bf:SF_var_is_strl(i::Int)}}Whether variable i is a strL{p_end}
-{synopt:{bf:SF_var_is_binary(i::Int, j::Int)}}Whether observation i of variable j is a binary strL{p_end}
+{synopt:{bf:SF_var_is_binary(j::Int, i::Int)}}Whether observation j of variable i is a binary strL{p_end}
 {synopt:{bf:SF_sdatalen(j::Int, i::Int)}}String length of variable i, observation j{p_end}
 {synopt:{bf:SF_is_missing()}}Whether a Float64 value is Stata missing{p_end}
 {synopt:{bf:SV_missval()}}Stata floating-point value for missing{p_end}
