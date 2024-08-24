@@ -69,7 +69,7 @@ program define assure_julia_started
     if _rc {
       di as err "Can't access Julia. {cmd:jl} requires that Julia be installed and that you are"
       di as err `"able to start it by typing "julia" in a terminal window (though you won't normally need to)."'
-      di as err `"Installation via {browse "https://github.com/JuliaLang/juliaup#installation":juliaup} is recommended."'
+      di as err `"See the Installation section of the {help jl##installation:jl help file}."'
       exit 198
     }
  
