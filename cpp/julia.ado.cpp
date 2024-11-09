@@ -204,12 +204,14 @@ void copytodf<double>(char* touse, ST_int i, double* px, double missval, char no
 }
 
 template <typename T>
-void copyfromdf(char* touse, ST_int i, T* px, char* pmissings, char nomissing) {
+void copyfromdf(char* touse, ST_int i, T* px, size_t offset, char* pmissings, char nomissing) {
     char* _tousej = touse;
+    px += offset;
     if (nomissing || !pmissings) {
         for (ST_int j = SF_in1(); j <= SF_in2(); j++)
             if (*_tousej++)
                 SF_vstore(i, j, (double)(*px++));
+
     }
     else
         for (ST_int j = SF_in1(); j <= SF_in2(); j++) {
@@ -237,7 +239,7 @@ STDLL_void copymatS2J(char* stmatname, char* jlmatname) {
     ST_int nrows = SF_row(stmatname);
     ST_int ncols = SF_col(stmatname);
     jl_value_t* X = JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nrows) + "," + to_string(ncols) + ")");  // no more Julia calls till we're done with X, so GC-safe
-    double* px = (double*)jl_array_data(X);
+    double* px = (double*)jl_array_data_(X);
     for (ST_int i = 1; i <= ncols; i++)
         for (ST_int j = 1; j <= nrows; j++) {
             SF_mat_el(stmatname, j, i, px);
@@ -251,7 +253,7 @@ STDLL_void copymatJ2S(jl_value_t* jlmat, char* stmatname) {
     size_t nrows = JL_nrows(jlmat);
     size_t ncols = JL_ncols(jlmat);
 
-    double* px = (double*)jl_array_data(JL_unsafe_makedouble(jlmat));
+    double* px = (double*)jl_array_data_(JL_unsafe_makedouble(jlmat));
 
     for (ST_int i = 1; i <= ncols; i++)
         for (ST_int j = 1; j <= nrows; j++)
@@ -259,7 +261,7 @@ STDLL_void copymatJ2S(jl_value_t* jlmat, char* stmatname) {
 }
 
 STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, ST_int in1, ST_int in2, char* touse, char* jlmatname, char nomissing) {
-    double* px = (double*)jl_array_data(JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(nvars) + ")"));
+    double* px = (double*)jl_array_data_(JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(nvars) + ")"));
 
     #if SYSTEM==APPLEMAC
     dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t _i)
@@ -392,11 +394,11 @@ STDLL stata_call(int argc, char* argv[])
         if (!noisily || !strcmp(argv[0], "evalmultiline")) {
             if (argc > 1) {
                 command = command_incomplete? command + " " + string(argv[1]) : string(argv[1]);
-                if (command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + command + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
+                if ((command_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + command + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)"))))
                     SF_macro_save((char*)"___jlcomplete", (char*)"0");
                 else {
                     session = session_incomplete? session + "; " + command : command;
-                    if (session_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + session + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)")))
+                    if ((session_incomplete = JL_unbox_bool(JL_eval("Meta.parse(raw\"\"\" " + session + " \"\"\") |> (x->x isa Expr && x.head==:incomplete)"))))
                         SF_macro_save((char*)"___jlcomplete", (char*)"0");
                     else {
                         SF_macro_save((char*)"___jlcomplete", (char*)"1");
@@ -451,7 +453,7 @@ STDLL stata_call(int argc, char* argv[])
 
         // argv[0] = "PutVarsToDF","PutVarsToDFnomissing": put vars in a new Julia DataFrame, with no special handling of Stata pmissings
         // argv[1] = DataFrame name; any existing DataFrame of that name will be overwritten
-        // argv[2] = DataFrame creation command template with %i for nobs; 0-length to indicate double-only mode
+        // argv[2] = DataFrame creation command with %i for nobs; 0-length to indicate double-only mode
         // argv[3] = null string for full sample copy (no if/in clause)
         nomissing = !strcmp(argv[0], "PutVarsToDFnomissing");
         if (nomissing || !strcmp(argv[0], "PutVarsToDF")) {
@@ -489,10 +491,10 @@ STDLL stata_call(int argc, char* argv[])
                     types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
                     pxs[i] = (void*)JL_eval(colname);
                     if (types[i] != 7)
-                        pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
+                        pxs[i] = (void*)jl_array_data_((jl_value_t*)pxs[i]);
                 }
             } else {  // double-only mode
-                double* _px = (double*)jl_array_data(JL_eval("stataplugininterface.x = Matrix{Float64}(undef, " + to_string(nobs) + "," + to_string(SF_nvars()) + ");" + dfname + "= DataFrame(stataplugininterface.x, :auto, copycols = false); stataplugininterface.x"));
+                double* _px = (double*)jl_array_data_(JL_eval("stataplugininterface.x = Matrix{Float64}(undef, " + to_string(nobs) + "," + to_string(SF_nvars()) + ");" + dfname + "= DataFrame(stataplugininterface.x, :auto, copycols = false); stataplugininterface.x"));
                 for (ST_int i = 0; i < SF_nvars(); i++) {
                     pxs[i] = _px;
                     _px += nobs;
@@ -587,7 +589,6 @@ STDLL stata_call(int argc, char* argv[])
         nomissing = !strcmp(argv[0], "GetVarsFromDFnomissing");
         if (nomissing || !strcmp(argv[0], "GetVarsFromDF")) {
             string dfname = string(argv[1]);
-
             size_t nobs = JL_nrows(JL_eval(dfname));
 
             if (!nobs) return 0;
@@ -609,24 +610,32 @@ STDLL stata_call(int argc, char* argv[])
             char* colnames = (char*)malloc(maxlen);
             (void)SF_macro_use(argv[2], colnames, maxlen);
             char* colname = strtok_r(colnames, " ", &next_colname);
-
             void** pxs = (void**)malloc(ncols * sizeof(void*));
             const char** types = (const char**)malloc(sizeof(const char *) * ncols);
             char** pmissings = (char**)malloc(sizeof(void*) * SF_nvars());
-            JL_eval("stataplugininterface.s = Set()");  // to protect levelcode() vectors of categorical vectors from GC
+            size_t* offsets = (size_t*)malloc(sizeof(size_t) * SF_nvars());
+
+            JL_eval("stataplugininterface.s = Set()");  // to protect levelcode() vectors of categorical vars from GC
+
             for (ST_int i = 0; i < ncols; i++) {
                 string colref = dfname + "." + string(colname);
-                JL_eval("stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
-                JL_eval("push!(stataplugininterface.s, stataplugininterface.x)");
-                pxs[i] = (void*)JL_eval("stataplugininterface.x");
-                types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
+                JL_eval(" stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
+                JL_eval("push!(stataplugininterface.s,  stataplugininterface.x)");
+                pxs[i] = (void*)JL_eval(" stataplugininterface.x");
+                types[i] = JL_string_ptr(JL_eval(" stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
 
-                if (!nomissing)
-                    pmissings[i] = JL_unbox_int64(JL_eval("eltype(" + colref + ") <: Union{<:Any, Missing}")) ?
-                                        (char*)jl_array_data(JL_eval("map(ismissing," + colref + ")")) :
-                                        NULL;
+                int64_t allowsmissing = JL_unbox_int64(JL_eval("eltype(" + colref + ") isa Union"));
+
+                if (allowsmissing) {
+                    pmissings[i] = (char*)jl_array_data_(JL_eval("map(ismissing," + colref + ")"));
+                    offsets[i] = (size_t)((jl_array_t*)pxs[i])->ref.ptr_or_offset;  // needed for GenericMemory-based arrays in Julia >1.10. Ugly to access this way.
+                }
+                else {
+                    pmissings[i] = NULL;
+                    offsets[i] = 0;
+                }
                 if (strcmp(types[i], "String"))
-                    pxs[i] = (void*)jl_array_data((jl_value_t*)pxs[i]);
+                    pxs[i] = allowsmissing? ((jl_array_t*)pxs[i])->ref.mem->ptr : (void*)jl_array_data_((jl_value_t*)pxs[i]);  // in Julia >1.10, jl_array_data_() returns an offset when eltype is a union https://hackmd.io/@vtjnash/GenericMemory
 
                 colname = strtok_r(NULL, " ", &next_colname);
             }
@@ -641,24 +650,23 @@ STDLL stata_call(int argc, char* argv[])
 #endif
                 {
                     if      (!strcmp(types[i], "Int8"))
-                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], offsets[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Int16"))
-                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], offsets[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Int32"))
-                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], offsets[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Int64"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], offsets[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Float32"))
-                        copyfromdf(touse, i + 1, (float*)pxs[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (float*)pxs[i], offsets[i], pmissings[i], nomissing);
                     else if (!strcmp(types[i], "Float64"))
-                        copyfromdf(touse, i + 1, (double*)pxs[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (double*)pxs[i], offsets[i], pmissings[i], nomissing);
                 }
 #if SYSTEM==APPLEMAC
                 );
 #else
             }
 #endif
-
             for (ST_int i = 0; i < ncols; i++)  // copying string vars apparently not thread-safe because of jl_*() calls
                 if (!strcmp(types[i], "String")) {
                     char* _tousej = touse;
@@ -680,7 +688,7 @@ STDLL stata_call(int argc, char* argv[])
             return 0;
         }
 
-        // argv[0] = "GetVarsFromMat": copy from Julia matrix into existing Stata vars, with no special handling of Julia pmissings; but Julia NaN mapped to Stata missing
+        // argv[0] = "GetVarsFromMat": copy from Julia matrix into existing Stata vars, with no special handling of Julia missings; but Julia NaN mapped to Stata missing
         // argv[1] = matrix name
         // argv[2] = null string for full sample copy (no if/in clause)
 
@@ -689,7 +697,7 @@ STDLL stata_call(int argc, char* argv[])
             size_t nobs = JL_nrows(mat);
             size_t ncols = JL_ncols(mat);
             if (SF_nvars() < ncols) ncols = SF_nvars();
-            double* px = (double*)jl_array_data(JL_unsafe_makedouble(mat));  // no more Julia calls till we're done with X, so GC-safe
+            double* px = (double*)jl_array_data_(JL_unsafe_makedouble(mat));  // no more Julia calls till we're done with X, so GC-safe
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(ncols, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
@@ -738,6 +746,7 @@ STDLL stata_call(int argc, char* argv[])
     catch (const char* msg) {
         JL_gc_enable(1);
         SF_macro_save((char*)"___jlans", (char*) msg);
+SF_error((char *)msg);
         return 999;
     }
     return 0;

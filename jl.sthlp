@@ -136,7 +136,7 @@ to Stata's {help use} and {help save}, but copy to and from Julia DataFrames. Un
 will clear the current data set if the {opt clear} option is included, and ensure that the new data set has enough rows to receive all the data.
 
 {pstd}
-The low-level routines give more include options to improve performance that are 
+The low-level routines give more options to improve performance, which are 
 useful when using {cmd:jl} to write a Julia back end for a Stata package. By default, the {cmd:jl PutVarsToDF} subcommand will map Stata data columns
 to Julia DataFrame columns of corresponding type, and mark all destination columns to allow missing values. {cmd:jl GetVarsFromDF} does
 something similar in the other direction. {cmd:PutVarsToDF}'s {opt nomiss:ing} option increases speed and is appropriate for variables known to contain no missing values. 

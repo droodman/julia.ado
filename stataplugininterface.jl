@@ -9,8 +9,10 @@ using DataFrames, CategoricalArrays
 global const dllpath = Ref{String}(raw"c:\ado\plus\j\jl.plugin")  # where to look for plugin with accessible wrappers for Stata interface functions
 setdllpath(s::String) = (dllpath[] = s)
 
-global macrobuf = Vector{Int8}(undef, 15_480_200+1)  # can hold maximum-sized Stata macro
+global x, s  # used by C++ plugin to avoid contaminating Main name space
+public setdllpath, x, s
 
+global macrobuf = Vector{Int8}(undef, 15_480_200+1)  # can hold maximum-sized Stata macro
 
 """
     st_varindex(s::AbstractString, abbrev::Bool=true)

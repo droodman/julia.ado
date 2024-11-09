@@ -1,4 +1,4 @@
-*! jl 1.0.2 17 August 2024
+*! jl 1.1.0 8 November 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -73,10 +73,11 @@ program define assure_julia_started
       exit 198
     }
  
-    plugin call _julia, eval `"Int(VERSION < v"1.9.4")"'
+    plugin call _julia, eval `"Int(VERSION < v"1.11.0")"'
     if `__jlans' {
-      di as err _n "jl requires that Julia 1.9.4 or higher be installed and accessible by default."
-      di as err "See the Installation section of the {help jl##installation:jl help file}."
+      di as err _n "jl requires that Julia 1.11.0 or higher be installed and accessible by default."
+      di as txt "It may suffice to type {stata !juliaup up} in Stata, and then restart Stata."
+      di as txt "See the Installation section of the {help jl##installation:jl help file}."
       global julia_loaded
       exit 198
     }
@@ -140,7 +141,7 @@ program define GetVarsFromDF
       label values `name' `name'
     }
   }
-  plugin call _julia `namelist' `if' `in', GetVarsFromDF`nomissing' `"`source'"' _cols `:strlen local cols' `ncols'
+  plugin call _julia `namelist' `if' `in', GetVarsFromDF`missing' `"`source'"' _cols `:strlen local cols' `ncols'
 end
 
 cap program drop PutVarsToDF
@@ -434,3 +435,4 @@ program _julia, plugin using(jl.plugin)
 * 1.0.0 Add GetEnv, support for closing ";", and interactive mode
 * 1.0.1 Drop confirm names on Julia source and destination matrices so they can be views or other things
 * 1.0.2 Fix crashes on really long included regressor lists; add status call to GetEnv & SetEnv; bug fixes
+* 1.1.0 Fix bug in GetVarsFromDF, nomissing. Now requires Julia >=1.11.

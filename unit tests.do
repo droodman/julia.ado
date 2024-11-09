@@ -25,14 +25,14 @@ gen x = _n
 gen xstr = string(44^x)
 jl: SF_nobs(), SF_nvars(), SF_nvar()
 jl: SF_var_is_string.(1:2) 
-jl: SF_var_is_strl.(1:2) 
-jl: SF_var_is_binary.(2,1:2)
-jl: SF_sdatalen.(2,1:5)
-jl: SF_vdata(1,2)
+jl: SF_var_is_strl.(1:2)
+jl: SF_var_is_binary.(1:2,2)
+jl: SF_sdatalen.(1:5,2)
+jl: SF_vdata(2,1)
 jl: SF_vstore(1,1,-32.4)
 di x
 jl: SF_sdata(2,2)
-jl: SF_sstore(2,1,"-32.4")
+jl: SF_sstore(1,2,"-32.4")
 di xstr
 
 jl: SF_display("Hello world!")
@@ -55,6 +55,10 @@ jl: X
 jl PutVarsToDF x in 2/4
 jl: df
 replace x = .
+// asd
+// program _julia, plugin using(jl.plugin)
+// plugin call _julia x in 2/4, GetVarsFromDF "df" _cols 1 1
+
 jl GetVarsFromDF x in 2/4, replace nomissing
 list x
 
