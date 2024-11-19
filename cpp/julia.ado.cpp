@@ -746,7 +746,6 @@ STDLL stata_call(int argc, char* argv[])
     catch (const char* msg) {
         JL_gc_enable(1);
         SF_macro_save((char*)"___jlans", (char*) msg);
-SF_error((char *)msg);
         return 999;
     }
     return 0;
