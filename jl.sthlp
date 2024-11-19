@@ -178,15 +178,15 @@ have a different effect than the same commands in the opposite order.
 
 {pstd}
 This package is designed for 64-bit Windows, Linux, and macOS, the last on an Intel or Apple CPU. It requires 
-Julia 1.11.1 or higher. As documented {browse "https://github.com/JuliaLang/juliaup#installation":here}, the easiest way to
-install it in Windows is from the {browse "https://apps.microsoft.com/detail/9NJNWW8PVKMN":Microsoft Store}; and the 
-easiest way to install it in Linux and macOS is with this shell command from inside Stata, which is clickable:
+Julia 1.11.1 or higher. As documented {browse "https://github.com/JuliaLang/juliaup#installation":here}, you install it 
+in Windows from the {browse "https://apps.microsoft.com/detail/9NJNWW8PVKMN":Microsoft Store}; and
+in Linux and macOS with this shell command from inside Stata, which is clickable:
 
 {pin}{stata "! curl -fsSL https://install.julialang.org | sh -s -- -y"}
 
 {pstd}
 On Intel Macs, 
-{cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey). On computers not officially supported by those editions, one can use 
+{cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey). On computers not officially supported by those editions, you can use 
 the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade--at your own risk.
 
 {pstd}
