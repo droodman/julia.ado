@@ -1,4 +1,4 @@
-*! jl 1.1.0 8 November 2024
+*! jl 1.1.1 22 November 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -436,3 +436,4 @@ program _julia, plugin using(jl.plugin)
 * 1.0.1 Drop confirm names on Julia source and destination matrices so they can be views or other things
 * 1.0.2 Fix crashes on really long included regressor lists; add status call to GetEnv & SetEnv; bug fixes
 * 1.1.0 Fix bug in GetVarsFromDF, nomissing. Now requires Julia >=1.11.
+* 1.1.1 Fixed crash in 1.1.0 in Mac ARM
