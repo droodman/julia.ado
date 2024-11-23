@@ -23,12 +23,16 @@ cap program drop wheresjulia
 program define wheresjulia, rclass
   version 14.1
   tempfile stdio stderr
-  foreach _bindir in "" `=cond(c(os)!="Windows", "~/.juliaup/bin/", "")' {
-    !`_bindir'juliaup -h > "`stdio'" 2> "`stderr'"
-    cap mata _fget(_julia_fh = _fopen("`stderr'", "r")); if (fstatus(_julia_fh)) st_local("bindir", "`_bindir'");;  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
-    if "`bindir'"!="" continue, break  // found a working path 
+  tempname rc
+  foreach bindir in "" `=cond(c(os)!="Windows", "~/.juliaup/bin/", "")' {
+    !`bindir'juliaup -h > "`stdio'" 2> "`stderr'"
+    cap mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
+    if `rc' {
+      return local bindir `bindir'
+      return scalar success = 1
+      continue, break
+    }
   }
-  return local bindir `bindir'
 end
 
 cap program drop assure_julia_started
@@ -45,10 +49,8 @@ program define assure_julia_started
     if "`channel'"=="" local channel $JULIA_COMPAT_VERSION  // only guaranteed compatible with this Julia version
     
     cap noi {
-      wheresjulia   
-
-      
-      if "`r(bindir)'"=="" {  // can't find juliaup so try to install it
+      wheresjulia      
+      if !0`r(success)' {  // can't find juliaup so try to install it
         if c(os)=="Windows" {
           !winget install julia -s msstore --accept-package-agreements
         }
@@ -57,11 +59,12 @@ program define assure_julia_started
         }
                        
         wheresjulia
-        if "`r(bindir)'"=="" exit 198  // still can't run juliaup: give up
+        if !0`r(success)' exit 198  // still can't run juliaup: give up
       }
 
       local bindir `r(bindir)'
-      tempname stdio stderr rc
+      tempname stdio stderr
+      tempname rc
 
       qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
