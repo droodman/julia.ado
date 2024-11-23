@@ -177,25 +177,49 @@ have a different effect than the same commands in the opposite order.
 {title:Installing Julia}
 
 {pstd}
-This package is designed for 64-bit Windows, Linux, and macOS, the last on an Intel or Apple CPU. It requires 
-Julia 1.11.1 or higher. As documented {browse "https://github.com/JuliaLang/juliaup#installation":here}, you install it 
-in Windows from the {browse "https://apps.microsoft.com/detail/9NJNWW8PVKMN":Microsoft Store}; and
-in Linux and macOS with this shell command from inside Stata, which is clickable:
+This package is designed for 64-bit Windows, Linux, and macOS, the last on an Intel or Apple CPU. It requires--and is
+currently only guaranteeed to be stable with---Julia 1.11 ("guaranteed" in air quotes). Historically, to install Julia,
+you would directly download the version you wanted. Now, the standard method, which you must
+follow to use this Stata package, installs the latest Julia version along with the {cmd:Juliaup} version manager. {cmd:Juliaup}
+helps you manage multiple versions of Julia on your computer. It does so through the construct of {it:channels}. The
+{cmd:}release} channel will hold the latest stable version of Julia available. A channel such as {cmd:1.11} would hold the latest update of Julia 1.11, say, 1.11.2---even
+after Julia 1.12 was released. (Though, probably if you are reading this, 1.12 hasn't been released. I expect to update this package as
+Julia changes.) 
+
+{pstd}
+In fact, because {cmd:jl} requires Julia 1.11 for stability, by default it will use the 1.11 channel. And it
+will create that channel if it doesn't exits. The underlying issue is that while Julia versions in the 1.X series guarantee backward compatibility
+with earlier 1.X versions, this guarantee does not extend to the low-level, C-based interface through which
+{cmd:jl} accesses Julia. When {cmd:jl} sets up the 1.11 branch, this will not interfere with any other 
+channels or versions that are on your computer, nor with any copy of Julia installed outside of {cmd:Juliaup}.
+
+{pstd}
+When first launched in a Stata session, {cmd:jl} will attempt to access {cmd:Juliaup} and the 1.11 channel. If these components are missing,
+it will attempt to install them. This automatic setup can fail,
+since it requires an Internet connection and certain permissions on youur computer. In case it does, 
+and you need to do it manually, here
+are the terminal commands. To install Juliaup and the latest Julia release, follow the 
+{browse "https://github.com/JuliaLang/juliaup#installation":official Julia download instructions}. In particular, in
+Windows, the (clickable) command line is
+
+{pin}{stata "! winget install julia -s msstore --accept-package-agreements"}
+
+{pstd}which will install from the Microsoft Store. In Linux and macOS, the command is:
 
 {pin}{stata "! curl -fsSL https://install.julialang.org | sh -s -- -y"}
 
-{pstd}
-On Intel Macs, 
+{pstd}Then, in any operating system, set up the 1.11 channel with
+
+{pin}{stata "! juliaup add 1.11"}
+
+{pstd}On Intel Macs, 
 {cmd:jl} seems to require at least macOS 11 (Big Sur) or 12 (Monterey). On computers not officially supported by those editions, you can use 
 the {browse "https://dortania.github.io/OpenCore-Legacy-Patcher/":OpenCore Legacy Patcher} to upgrade--at your own risk.
 
-{pstd}
-After installing Julia, restart Stata for good measure.
-
-{pstd} On first use, {cmd:jl} will attempt to install the Julia packages DataFrames.jl and CategoricalArrays.jl. That can take a minute.
+{pstd} On first use, {cmd:jl} will also attempt to install the Julia packages DataFrames.jl and CategoricalArrays.jl. That can take a minute.
 
 
-{title:Installing the JuliaMono font}
+{title:The JuliaMono font}
 
 {pstd}The {browse "https://juliamono.netlify.app":JuliaMono} font is a free, monospaced font that works well in Stata and includes
 Unicode characters that often appear in Julia output, such as {browse "https://www.compart.com/en/unicode/U+22EE":vertical} and 

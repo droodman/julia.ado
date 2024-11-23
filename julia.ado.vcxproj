@@ -85,7 +85,7 @@
     <OutDir>D:\OneDrive\Documents\Macros\julia.ado\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>jl.pluginWIN64</TargetName>
+    <TargetName>jl.pluginWIN64.</TargetName>
     <TargetExt>
     </TargetExt>
     <OutDir>D:\OneDrive\Documents\Macros\julia.ado\</OutDir>
