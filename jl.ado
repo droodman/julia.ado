@@ -18,6 +18,19 @@
   
 global JULIA_COMPAT_VERSION 1.11
 
+// Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
+cap program drop wheresjulia
+program define wheresjulia, rclass
+  version 14.1
+  tempfile stdio stderr
+  foreach _bindir in "" `=cond(c(os)!="Windows", "~/.juliaup/bin/", "")' {
+    !`_bindir'juliaup -h > "`stdio'" 2> "`stderr'"
+    cap mata _fget(_julia_fh = _fopen("`stderr'", "r")); if (fstatus(_julia_fh)) st_local("bindir", "`_bindir'");;  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
+    if "`bindir'"!="" continue, break  // found a working path 
+  }
+  return local bindir `bindir'
+end
+
 cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
@@ -29,17 +42,13 @@ program define assure_julia_started
       _assert !_rc & `threads'>0, msg(`"threads() option must be "auto" or a positive integer"') rc(198)
     }
 
+    if "`channel'"=="" local channel $JULIA_COMPAT_VERSION  // only guaranteed compatible with this Julia version
+    
     cap noi {
-      tempfile stdio stderr
-      tempname rc
+      wheresjulia   
 
-      if "`channel'"=="" local channel $JULIA_COMPAT_VERSION  // only guaranteed compatible with this Julia version
       
-      !juliaup -h > "`stdio'" 2> "`stderr'"
-      qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
-
-      // can't find juliaup so try to install it
-      if `rc' {
+      if "`r(bindir)'"=="" {  // can't find juliaup so try to install it
         if c(os)=="Windows" {
           !winget install julia -s msstore --accept-package-agreements
         }
@@ -47,27 +56,29 @@ program define assure_julia_started
           !curl -fsSL https://install.julialang.org | sh -s -- -y
         }
                        
-        !juliaup -h > "`stdio'" 2> "`stderr'"
-        qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
-        if `rc' exit 198
+        wheresjulia
+        if "`r(bindir)'"=="" exit 198  // still can't run juliaup: give up
       }
 
-      qui !julia +`channel' -e '1' 2> "`stderr'"
+      local bindir `r(bindir)'
+      tempname stdio stderr rc
+
+      qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
       if `rc' {
         di as txt `"Attempting to add `channel' channel to the local Julia installation."'
         di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
         di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
         di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
-        !juliaup add `channel'  
+        !`bindir'juliaup add `channel'  
       }
       cap {
         cap mata _fclose(_julia_fh)
-        !julia +`channel' -e "using Libdl; println(dlpath(\"libjulia\"))" > "`stdio'"  // fails in RH Linux
+        !`bindir'julia +`channel' -e "using Libdl; println(dlpath(\"libjulia\"))" > "`stdio'"  // fails in RH Linux
         mata pathsplit(_fget(_julia_fh = _fopen("`stdio'", "r")), _juliapath="", _julialibname="")
       }
       if _rc & c(os)!="Windows" cap {
-        !julia +`channel' -e 'using Libdl; println(dlpath( "libjulia" ))' > "`stdio'"  // fails in Windows
+        !`bindir'julia +`channel' -e 'using Libdl; println(dlpath( "libjulia" ))' > "`stdio'"  // fails in Windows
         mata pathsplit(_fget(_julia_fh = _fopen("`stdio'", "r")), _juliapath="", _julialibname="")
       }
       cap mata _fclose(_julia_fh)
@@ -440,3 +451,4 @@ program _julia, plugin using(jl.plugin)
 * 1.0.2 Fix crashes on really long included regressor lists; add status call to GetEnv & SetEnv; bug fixes
 * 1.1.0 Fix bug in GetVarsFromDF, nomissing. Now requires Julia >=1.11.
 * 1.1.1 Fixed crash in 1.1.0 in Mac ARM
+* 1.1.2 Switch to using a dedicated 1.11 Juliaup channel; automatically install Julia
