@@ -375,3 +375,5 @@ test/*
 Steps to compile julia Mac Intel.docx
 failing attempt to avoid Meta.parse() calls inside strings.txt
 .DS_Store
+jl.pluginWIN64.exp
+jl.pluginWIN64.lib
