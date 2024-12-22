@@ -117,10 +117,10 @@ continuation token, "///":{p_end}
 {pmore}{inp} jl: s = 0; for i in 1:10 s += i end; s {p_end}
 
 {pmore}{inp} jl: s = 0; {space 7}/// {p_end}
-{pmore}{inp} {space 4}for i in 1:10 /// {p_end}
+{pmore}{inp} {space 4}for i in 1:10  /// {p_end}
 {pmore}{inp} {space 8}s += i {space 3}/// {p_end}
 {pmore}{inp} {space 4}end; {space 9}/// {p_end}
-{pmore}{inp} {space 4}s{p_end}
+{pmore}{inp} {space 4}s {txt}{p_end}
 
 {pstd}
 The {cmd:jl start} command is often not needed. If it is not used, then Julia will be automatically started anyway the first time it is called in a Stata 

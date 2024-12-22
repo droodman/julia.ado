@@ -63,18 +63,20 @@ program define assure_julia_started
       }
 
       local bindir `r(bindir)'
-      tempname stdio stderr
+      tempfile stdio stderr
       tempname rc
 
       qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
       if `rc' {
-        di as txt `"Attempting to add `channel' channel to the local Julia installation."'
+        di as txt `"Attempting to add/update `channel' channel to the local Julia installation."'
         di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
         di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
         di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
         !`bindir'juliaup add `channel'  
+        !`bindir'juliaup up  `channel'  
       }
+
       cap {
         cap mata _fclose(_julia_fh)
         !`bindir'julia +`channel' -e "using Libdl; println(dlpath(\"libjulia\"))" > "`stdio'"  // fails in RH Linux
@@ -135,15 +137,18 @@ end
 
 cap program drop GetVarsFromDF
 program define GetVarsFromDF
-  syntax namelist [if] [in], [source(string) replace COLs(string asis) noMISSing]
+  syntax [namelist] [if] [in], [source(string) replace COLs(string asis) noMISSing]
   if `"`source'"'=="" local source df
+  if "`namelist'"=="" plugin call _julia, evalqui `"st_local("namelist", join(names(`source'), " "))"'
+
   if `"`cols'"'=="" local cols `namelist'
     else {
       confirm names `cols'
       _assert `:word count `cols''<=cond("`varlist'"=="",c(k),`:word count `varlist''), msg("Too few destination variables specified.") rc(198) 
     }
   if "`replace'"=="" confirm new var `namelist'
-  plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
+  cap noi plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
+  _assert !_rc, msg(`"`__jlans'"') rc(198)
   local types `__jlans'
   local ncols: word count `cols'
   forvalues v=1/`ncols' {
@@ -151,14 +156,17 @@ program define GetVarsFromDF
     local col : word `v' of `cols'
     local name: word `v' of `namelist'
     cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
-    plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
+    cap noi plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
+    _assert !_rc, msg(`"`__jlans'"') rc(198)
     if `__jlans' {
-      plugin call _julia, evalqui `"st_local("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "))"'
+      cap noi plugin call _julia, evalqui `"st_local("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "))"'
+      _assert !_rc, msg(`"`__jlans'"') rc(198)
       label define `name' `=subinstr(`"`labeldef'"', "%", `"""', .)', replace
       label values `name' `name'
     }
   }
-  plugin call _julia `namelist' `if' `in', GetVarsFromDF`missing' `"`source'"' _cols `:strlen local cols' `ncols'
+  cap noi plugin call _julia `namelist' `if' `in', GetVarsFromDF`missing' `"`source'"' _cols `:strlen local cols' `ncols'
+  _assert !_rc, msg(`"`__jlans'"') rc(198)
 end
 
 cap program drop PutVarsToDF

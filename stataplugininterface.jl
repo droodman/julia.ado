@@ -265,7 +265,7 @@ function st_local(mac::AbstractString, tosave::AbstractString)
     rc = @ccall dllpath[].jlSF_macro_save(("_"*mac)::Cstring, tosave::Cstring)::Cint
     rc!=0 && throw(rc)
     mac ∉ Set(("___jlans","___jlcomplete")) &&
-        SF_macro_save("___jllocals", SF_macro_use("___jllocals") * " " * mac)  # add to Stata local "locals"
+        SF_macro_save("___jllocals", SF_macro_use("___jllocals") * " " * mac)  # add to Stata local "__jllocals"
     nothing
 end
 
@@ -375,7 +375,7 @@ function statatype(v::AbstractVector)::String
 
     jltype <: AbstractString ? "str" * string(min(2045, mapreduce(length, max, v, init=0))) :
     jltype <: Integer ?
-        typemax(jltype)<=32741 ? "int"   : "long"   :
+        typemax(jltype)≤32_741 ? "int"   : (typemax(jltype)≤2_147_483_620 ? "long" : "double") :
         jltype == Float32      ? "float" : "double"
 end
 

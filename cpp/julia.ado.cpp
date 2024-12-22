@@ -204,19 +204,18 @@ void copytodf<double>(char* touse, ST_int i, double* px, double missval, char no
 }
 
 template <typename T>
-void copyfromdf(char* touse, ST_int i, T* px, size_t offset, char* pmissings, char nomissing) {
+void copyfromdf(char* touse, ST_int i, T* px, size_t offset, char* pmissings, char nomissing, size_t _SF_in2) {
     char* _tousej = touse;
     px += offset;
     if (nomissing || !pmissings) {
-        for (ST_int j = SF_in1(); j <= SF_in2(); j++)
+        for (ST_int j = SF_in1(); j <= _SF_in2; j++)
             if (*_tousej++)
                 SF_vstore(i, j, (double)(*px++));
-
     }
     else
-        for (ST_int j = SF_in1(); j <= SF_in2(); j++) {
+        for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
             if (*_tousej++) {
-                SF_vstore(i, j, *pmissings++? SV_missval : (double) *px);
+                SF_vstore(i, j, *pmissings++ ? SV_missval : (double)*px);
                 px++;
             }
         }
@@ -589,20 +588,20 @@ STDLL stata_call(int argc, char* argv[])
         nomissing = !strcmp(argv[0], "GetVarsFromDFnomissing");
         if (nomissing || !strcmp(argv[0], "GetVarsFromDF")) {
             string dfname = string(argv[1]);
-            size_t nobs = JL_nrows(JL_eval(dfname));
+            size_t df_rows = JL_nrows(JL_eval(dfname));
 
-            if (!nobs) return 0;
+            if (!df_rows) return 0;
 
             char* touse = (char*)malloc(SF_in2() - SF_in1() + 1);
             char* tousej = touse;
             size_t ST_rows = 0;
-            for (ST_int j = SF_in1(); j <= SF_in2(); j++)
-                ST_rows += (*tousej++ = (char)SF_ifobs(j));
-            if (nobs > ST_rows) {
+            ST_int _SF_in2 = SF_in1();  // will end up equalling last row of Stata data set to use: will be SF_in2(), or less if source df is short
+            for (; _SF_in2 <= SF_in2() && ST_rows < df_rows; _SF_in2++)
+                ST_rows += (*tousej++ = (char)SF_ifobs(_SF_in2));
+            if (--_SF_in2 == SF_in2() && ST_rows < df_rows) {
                 free(touse);
                 throw "Too few rows to receive data.";
             }
-
             size_t ncols = atoi(argv[4]);
 
             char* next_colname;
@@ -620,14 +619,14 @@ STDLL stata_call(int argc, char* argv[])
             for (ST_int i = 0; i < ncols; i++) {
                 string colref = dfname + "." + string(colname);
                 JL_eval(" stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
-                JL_eval("push!(stataplugininterface.s,  stataplugininterface.x)");
-                pxs[i] = (void*)JL_eval(" stataplugininterface.x");
+                JL_eval("push!(stataplugininterface.s, stataplugininterface.x)");
+                pxs[i] = (void*)JL_eval("stataplugininterface.x");
                 types[i] = JL_string_ptr(JL_eval(" stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
 
-                int64_t allowsmissing = JL_unbox_int64(JL_eval("eltype(" + colref + ") isa Union"));
+                int64_t allowsmissing = JL_unbox_int64(JL_eval("eltype(stataplugininterface.x) isa Union"));
 
                 if (allowsmissing) {
-                    pmissings[i] = (char*)jl_array_data_(JL_eval("map(ismissing," + colref + ")"));
+                    pmissings[i] = (char*)jl_array_data_(JL_eval("map(ismissing,stataplugininterface.x)"));
                     offsets[i] = (size_t)((jl_array_t*)pxs[i])->ref.ptr_or_offset;  // needed for GenericMemory-based arrays in Julia >1.10. Ugly to access this way.
                 }
                 else {
@@ -635,7 +634,7 @@ STDLL stata_call(int argc, char* argv[])
                     offsets[i] = 0;
                 }
                 if (strcmp(types[i], "String"))
-                    pxs[i] = allowsmissing? ((jl_array_t*)pxs[i])->ref.mem->ptr : (void*)jl_array_data_((jl_value_t*)pxs[i]);  // in Julia >1.10, jl_array_data_() returns an offset when eltype is a union https://hackmd.io/@vtjnash/GenericMemory
+                    pxs[i] = allowsmissing? ((jl_array_t*)pxs[i])->ref.mem->ptr : (void*)jl_array_data_((jl_value_t*)pxs[i]);  // in Julia >= 1.11, jl_array_data_() returns an offset when eltype is a union https://hackmd.io/@vtjnash/GenericMemory
 
                 colname = strtok_r(NULL, " ", &next_colname);
             }
@@ -643,24 +642,24 @@ STDLL stata_call(int argc, char* argv[])
 #if SYSTEM==APPLEMAC
             dispatch_apply(ncols, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
 #else
-#pragma omp parallel
+//#pragma omp parallel
             {
-#pragma omp for
+//#pragma omp for
                 for (ST_int i = 0; i < ncols; i++)
 #endif
                 {
                     if      (!strcmp(types[i], "Int8"))
-                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], offsets[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2);
                     else if (!strcmp(types[i], "Int16"))
-                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], offsets[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2);
                     else if (!strcmp(types[i], "Int32"))
-                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], offsets[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2);
                     else if (!strcmp(types[i], "Int64"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], offsets[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2);
                     else if (!strcmp(types[i], "Float32"))
-                        copyfromdf(touse, i + 1, (float*)pxs[i], offsets[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (float*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2);
                     else if (!strcmp(types[i], "Float64"))
-                        copyfromdf(touse, i + 1, (double*)pxs[i], offsets[i], pmissings[i], nomissing);
+                        copyfromdf(touse, i + 1, (double*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2);
                 }
 #if SYSTEM==APPLEMAC
                 );
