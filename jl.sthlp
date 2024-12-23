@@ -55,7 +55,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl PutVarsToDF} [{varlist}] {ifin}, [{opt dest:ination(string)} {opt col:s(string)} {opt nolab:el} {opt nomiss:ing} {opt double:only}]
 
 {phang}
-{cmd:jl GetVarsFromDF} {varlist} {ifin}, [{opt cols(string)} {opt source(string)} {opt replace} {opt nomiss:ing}]
+{cmd:jl GetVarsFromDF} [{varlist}] {ifin}, [{opt cols(string)} {opt source(string)} {opt replace} {opt nomiss:ing}]
 
 {phang}
 {cmd:jl PutVarsToMat} [{varlist}] {ifin}, {opt dest:ination(string)}
@@ -277,9 +277,10 @@ To determine how many threads are available, type "{stata "jl: Threads.nthreads(
 
 {pstd}
 In the data-copying subcommands, the {varlist}'s and {opt matname}'s before the commas always
-refer to Stata variables or matrices. If a {varlist} is omitted where it is optional,
+refer to Stata variables or matrices. If a {varlist} is omitted from a "Put" command where it is optional,
 the variable list will default to {cmd:*}, i.e., all variables in the current data frame in 
-their current order.
+their current order. If omitted from a {cmd:GetVarsFromDF}, an omitted {varlist} will default to the 
+value of the {opt cols()} option--which itself will default to empty unless provided.
 
 {pstd}
 The options after the comma in these subcommands refer to Julia objects. {opt dest:ination()}

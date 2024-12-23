@@ -18,6 +18,7 @@
   
 global JULIA_COMPAT_VERSION 1.11
 
+
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
 program define wheresjulia, rclass
@@ -139,8 +140,7 @@ cap program drop GetVarsFromDF
 program define GetVarsFromDF
   syntax [namelist] [if] [in], [source(string) replace COLs(string asis) noMISSing]
   if `"`source'"'=="" local source df
-  if "`namelist'"=="" plugin call _julia, evalqui `"st_local("namelist", join(names(`source'), " "))"'
-
+  if "`namelist'"=="" & `"`cols'"'!="" local namelist `cols'
   if `"`cols'"'=="" local cols `namelist'
     else {
       confirm names `cols'
@@ -173,7 +173,7 @@ cap program drop PutVarsToDF
 program define PutVarsToDF
   syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing noLABel]
   if `"`destination'"'=="" local destination df
-  local ncols = cond("`varlist'"=="",c(k),`:word count `varlist'')
+  local ncols = cond("`varlist'"=="", c(k), `:word count `varlist'')
   if `"`cols'"'=="" unab cols: `varlist'
   else {
     confirm names `cols'
