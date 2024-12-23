@@ -70,7 +70,7 @@ program define assure_julia_started
       qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
       if `rc' {
-        di as txt `"Attempting to add/update `channel' channel to the local Julia installation."'
+        di as txt `"Attempting to add/update `channel' channel in the local Julia installation."'
         di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
         di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
         di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
