@@ -1,4 +1,4 @@
-*! jl 1.1.2 23 November 2024
+*! jl 1.1.3 23 December 2024
 *! Copyright (C) 2023-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -463,3 +463,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.0 Fix bug in GetVarsFromDF, nomissing. Now requires Julia >=1.11.
 * 1.1.1 Fixed crash in 1.1.0 in Mac ARM
 * 1.1.2 Switch to using a dedicated 1.11 Juliaup channel; automatically install Julia
+* 1.1.3 Bug fixes. Make GetVarsFromDF varlist default to cols() option.
