@@ -1,5 +1,5 @@
-*! jl 1.1.3 23 December 2024
-*! Copyright (C) 2023-24 David Roodman
+*! jl 1.1.4 3 January 2025
+*! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ program define wheresjulia, rclass
   foreach bindir in "" `=cond(c(os)!="Windows", "~/.juliaup/bin/", "")' {
     !`bindir'juliaup -h > "`stdio'" 2> "`stderr'"
     cap mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
+    cap mata _fclose(_julia_fh)
     if `rc' {
       return local bindir `bindir'
       return scalar success = 1
@@ -69,6 +70,7 @@ program define assure_julia_started
 
       qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
+      cap mata _fclose(_julia_fh)
       if `rc' {
         di as txt `"Attempting to add/update `channel' channel in the local Julia installation."'
         di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
@@ -79,7 +81,6 @@ program define assure_julia_started
       }
 
       cap {
-        cap mata _fclose(_julia_fh)
         !`bindir'julia +`channel' -e "using Libdl; println(dlpath(\"libjulia\"))" > "`stdio'"  // fails in RH Linux
         mata pathsplit(_fget(_julia_fh = _fopen("`stdio'", "r")), _juliapath="", _julialibname="")
       }
@@ -464,3 +465,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.1 Fixed crash in 1.1.0 in Mac ARM
 * 1.1.2 Switch to using a dedicated 1.11 Juliaup channel; automatically install Julia
 * 1.1.3 Bug fixes. Make GetVarsFromDF varlist default to cols() option.
+* 1.1.4 Make sure to close all temp files opened in Mata, which otherwise can crash other programs
