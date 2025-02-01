@@ -4,7 +4,7 @@ export SF_sdatalen, SF_var_is_string, SF_var_is_strl, SF_var_is_binary, SF_nobs,
        SF_vdata, SF_sdata, SF_mat_el, SF_macro_use, SF_scal_use, st_varindex, st_matrix, st_numscalar, st_data, st_view, st_local, st_global,
        st_nobs, st_nvar
 
-using DataFrames, CategoricalArrays
+using DataFrames, CategoricalArrays, Dates
 
 global const dllpath = Ref{String}(raw"c:\ado\plus\j\jl.plugin")  # where to look for plugin with accessible wrappers for Stata interface functions
 setdllpath(s::String) = (dllpath[] = s)
@@ -374,6 +374,8 @@ function statatype(v::AbstractVector)::String
     jltype <: CategoricalValue && (jltype = cvindextype(jltype))
 
     jltype <: AbstractString ? "str" * string(min(2045, mapreduce(length, max, v, init=0))) :
+    jltype <: Date ? "long" :
+    jltype <: DateTime ? "double" :
     jltype <: Integer ?
         typemax(jltype)≤32_741 ? "int"   : (typemax(jltype)≤2_147_483_620 ? "long" : "double") :
         jltype == Float32      ? "float" : "double"

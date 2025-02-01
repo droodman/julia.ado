@@ -157,6 +157,7 @@ program define GetVarsFromDF
     local col : word `v' of `cols'
     local name: word `v' of `namelist'
     cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
+
     cap noi plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
     _assert !_rc, msg(`"`__jlans'"') rc(198)
     if `__jlans' {
@@ -168,6 +169,17 @@ program define GetVarsFromDF
   }
   cap noi plugin call _julia `namelist' `if' `in', GetVarsFromDF`missing' `"`source'"' _cols `:strlen local cols' `ncols'
   _assert !_rc, msg(`"`__jlans'"') rc(198)
+  
+  forvalues v=1/`ncols' {
+    local col : word `v' of `cols'
+    local name: word `v' of `namelist'
+    cap noi plugin call _julia, eval "Int(`source'.`col' |> eltype |> nonmissingtype <: Date)"
+    _assert !_rc, msg(`"`__jlans'"') rc(198)
+    if `__jlans' format %td `name'
+    cap noi plugin call _julia, eval "Int(`source'.`col' |> eltype |> nonmissingtype <: DateTime)"
+    _assert !_rc, msg(`"`__jlans'"') rc(198)
+    if `__jlans' format %tc `name'  // NOT %tC
+  }
 end
 
 cap program drop PutVarsToDF
