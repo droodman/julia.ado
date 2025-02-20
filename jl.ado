@@ -107,7 +107,7 @@ program define assure_julia_started
       plugin call _julia, evalqui "using Pkg"
       AddPkg DataFrames, minver(1.6.1)
       AddPkg CategoricalArrays, minver(0.10.8)
-      plugin call _julia, evalqui "using DataFrames, CategoricalArrays"
+      plugin call _julia, evalqui "using DataFrames, CategoricalArrays, Dates"
 
       qui findfile stataplugininterface.jl
       plugin call _julia, evalqui `"pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))"'
