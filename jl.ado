@@ -1,4 +1,4 @@
-*! jl 1.1.5 1 February 2025
+*! jl 1.1.6 19 February 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -479,3 +479,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.3 Bug fixes. Make GetVarsFromDF varlist default to cols() option.
 * 1.1.4 Make sure to close all temp files opened in Mata, which otherwise can crash other programs
 * 1.1.5 Add date/datetime support to -jl use-
+* 1.1.6 Fix 1.1.5 crash
