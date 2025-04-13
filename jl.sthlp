@@ -182,7 +182,7 @@ currently only guaranteeed to be stable with---Julia 1.11 ("guaranteed" in air q
 you would directly download the version you wanted. Now, the standard method, which you must
 follow to use this Stata package, installs the latest Julia version along with the {cmd:Juliaup} version manager. {cmd:Juliaup}
 helps you manage multiple versions of Julia on your computer. It does so through the construct of {it:channels}. The
-{cmd:}release} channel will hold the latest stable version of Julia available. A channel such as {cmd:1.11} would hold the latest update of Julia 1.11, say, 1.11.2---even
+{cmd:release} channel will hold the latest stable version of Julia available. A channel such as {cmd:1.11} would hold the latest update of Julia 1.11, say, 1.11.2---even
 after Julia 1.12 was released. (Though, probably if you are reading this, 1.12 hasn't been released. I expect to update this package as
 Julia changes.) 
 
