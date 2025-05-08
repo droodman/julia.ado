@@ -121,6 +121,7 @@ end
 
 cap program drop AddPkg
 program define AddPkg
+  version 14.1
   syntax name, [MINver(string)]
   plugin call _julia, eval `"Int(!("`namelist'" in keys(Pkg.project().dependencies)))"'
   local notinstalled: copy local __jlans
@@ -139,6 +140,7 @@ end
 
 cap program drop GetVarsFromDF
 program define GetVarsFromDF
+  version 14.1
   syntax [namelist] [if] [in], [source(string) replace COLs(string asis) noMISSing]
   if `"`source'"'=="" local source df
   if "`namelist'"=="" & `"`cols'"'!="" local namelist `cols'
@@ -184,6 +186,7 @@ end
 
 cap program drop PutVarsToDF
 program define PutVarsToDF
+  version 14.1
   syntax [varlist] [if] [in], [DESTination(string) COLs(string) DOUBLEonly noMISSing noLABel]
   if `"`destination'"'=="" local destination df
   local ncols = cond("`varlist'"=="", c(k), `:word count `varlist'')
@@ -377,6 +380,7 @@ end
 
 cap program drop jlcmd
 program define jlcmd, rclass
+  version 14.1
   cap _on_colon_parse `0'
   local __jlcmd  = trim(`"`s(after)'"')
   local 0 `"`s(before)'"'
