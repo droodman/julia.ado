@@ -99,6 +99,7 @@ program define assure_julia_started
     if _rc {
       di as err "Can't access Julia and Juliaup. {cmd:jl} requires that Julia be installed, along with the version manager Juliaup, and that"
       di as err `"you are able to start both by typing "julia" and "juliaup" in a terminal window (though you won't normally need to)."'
+	  if `"`c(os)'`c(machine_type)'"'=="MacOSXMacintosh (Intel 64-bit)" di as err `"If this is an Apple sillicon Mac, make sure {browse "https://discussions.apple.com/thread/255582529?answerId=255582529021&sortBy=rank#255582529021":Stata is not running under Rosetta}, restart Stata, and reinstall the julia package with {stata ssc install julia, replace}."'
       di as err `"See the Installation section of the {help jl##installation:jl help file}."'
       exit 198
     }
