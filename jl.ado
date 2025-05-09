@@ -1,4 +1,4 @@
-*! jl 1.1.7 28 March 2025
+*! jl 1.1.8 9 May 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -42,6 +42,16 @@ program define assure_julia_started
   version 14.1
 
   if `"$julia_loaded"' == "" {
+    tempfile stdio stderr
+    tempname rc
+
+    if c(os)=="MacOSX" & c(machine_type)=="Macintosh (Intel 64-bit)" {
+      !sysctl -n sysctl.proc_translated > "`stdio'"
+      cap mata st_local("rc", _fget(_julia_fh = _fopen("`stdio'", "r")))
+      cap mata fclose(_julia_fh)
+      _assert "`rc'"!="1", msg("Cant't load Julia when running under Rosetta. Disable Rosetta for Stata, restart Stata, and reinstall the julia package with {cmd:ssc install julia, replace}.") rc(198)
+    }
+    
     syntax, [threads(string) channel(string)]
     if !inlist(`"`threads'"', "", "auto") {
       cap confirm integer number `threads'
@@ -63,10 +73,7 @@ program define assure_julia_started
         wheresjulia
         if !0`r(success)' exit 198  // still can't run juliaup: give up
       }
-
       local bindir `r(bindir)'
-      tempfile stdio stderr
-      tempname rc
 
       qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
@@ -99,7 +106,6 @@ program define assure_julia_started
     if _rc {
       di as err "Can't access Julia and Juliaup. {cmd:jl} requires that Julia be installed, along with the version manager Juliaup, and that"
       di as err `"you are able to start both by typing "julia" and "juliaup" in a terminal window (though you won't normally need to)."'
-	  if `"`c(os)'`c(machine_type)'"'=="MacOSXMacintosh (Intel 64-bit)" di as err `"If this is an Apple sillicon Mac, make sure {browse "https://discussions.apple.com/thread/255582529?answerId=255582529021&sortBy=rank#255582529021":Stata is not running under Rosetta}, restart Stata, and reinstall the julia package with {stata ssc install julia, replace}."'
       di as err `"See the Installation section of the {help jl##installation:jl help file}."'
       exit 198
     }
@@ -486,3 +492,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.5 Add date/datetime support to -jl use-
 * 1.1.6 Fix 1.1.5 crash
 * 1.1.7 Automatically load InteractiveUtils
+* 1.1.8 Error if running under Rosetta
