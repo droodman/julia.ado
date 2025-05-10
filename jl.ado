@@ -49,7 +49,7 @@ program define assure_julia_started
       !sysctl -n sysctl.proc_translated > "`stdio'"
       cap mata st_local("rc", _fget(_julia_fh = _fopen("`stdio'", "r")))
       cap mata fclose(_julia_fh)
-      _assert "`rc'"!="1", msg("Cant't load Julia when running under Rosetta. Disable Rosetta for Stata, restart Stata, and reinstall the julia package with {cmd:ssc install julia, replace}.") rc(198)
+      _assert "`rc'"!="1", msg("Can't load Julia when running under Rosetta. Disable Rosetta for Stata, restart Stata, and reinstall the julia package with {cmd:ssc install julia, replace}.") rc(198)
     }
     
     syntax, [threads(string) channel(string)]
