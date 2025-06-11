@@ -273,6 +273,21 @@ and any other invocation of Julia-calling commands such as {cmd:reghdfejl} and {
 To determine how many threads are available, type "{stata "jl: Threads.nthreads()"}" at the Stata prompt.
 
 
+{title:Preventing crashes}
+
+{pstd}
+On rare occasion, Stata will unload the {cmd:jl} package in order to save memory. The state of your Julia environment will then be lost, and the next {cmd:jl} command will end with an error message, or a bad crash.
+
+{pstd}
+If this happens to you, try adding a line like this to your own code:
+
+{phang2}
+{cmd:capture program [my program name], plugin using(jl.plugin)}
+
+{pstd}
+where "{cmd:[my program name]}" is a valid program name such as {cmd:myjlplugin}. This extra reference to the crucial "jl.plugin" file, which is part of this package, will reduce the chance that Stata erases your Julia session.
+
+
 {title:Options}
 
 {pstd}
