@@ -134,7 +134,7 @@ program define AddPkg
   local notinstalled: copy local __jlans
   if !`notinstalled' & "`minver'"!="" plugin call _julia, eval `"length([1 for v in values(Pkg.dependencies()) if v.name=="`namelist'" && v.version<v"`minver'"])"'
   if `notinstalled' | 0`__jlans' {
-    di as txt "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes." _n 
+    di as txt _n "The Julia package `namelist' is not installed and up-to-date in this package environment. Attempting to update it. This could take a few minutes."
     mata displayflush() 
     cap plugin call _julia, evalqui `"Pkg.add(PackageSpec(name=String(:`namelist') `=cond("`minver'"=="", "", `", version=VersionNumber(`:subinstr local minver "." ",", all') "')'))"'
     if _rc {
@@ -337,6 +337,7 @@ program define jl, rclass
        plugin call _julia, eval `"size(`source',1)"'
        local rows: copy local __jlans
        plugin call _julia, eval `"size(`source',2)"'
+       _assert `rows' & `__jlans', rc(198) msg("cannot get matrix with height or width 0")
        mat `namelist' = J(`rows', `__jlans', .)
        plugin call _julia, GetMatFromMat `namelist' `"`source'"'
     }
