@@ -279,7 +279,7 @@ STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, ST_int in1, ST
     double* px = (double*)jl_array_data_(JL_eval(string(jlmatname) + "= Matrix{Float64}(undef," + to_string(nobs) + "," + to_string(nvars) + ")"));
 
     #if SYSTEM==APPLEMAC
-    dispatch_apply(SF_nvars(), dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t _i)
+    dispatch_apply(nvars, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t _i)
     #else
     #pragma omp parallel
     {
@@ -316,7 +316,6 @@ STDLL_void st_data(ST_int* varindexes, ST_int nvars, ST_int nobs, ST_int in1, ST
                         *pxj = NaN64;
                     pxj++;
                 }
-
         }
     #if SYSTEM==APPLEMAC
         );

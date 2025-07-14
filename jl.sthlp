@@ -377,10 +377,14 @@ and written with Julia commands.
 {synopt:{bf:st_data(varnames::Vector{<:String})}}Get Stata variables in string vector, as matrix{p_end}
 {synopt:{bf:st_data(varnames::String, sample::Vector{Bool})}}Get Stata variables, with sample restriction, as matrix{p_end}
 {synopt:{bf:st_data(varnames::Vector{<:String}, sample::Vector{Bool})}}Get Stata variables, with sample restriction, as matrix{p_end}
+{synopt:{bf:st_data(varnames::String, sample::String)}}Get variables, with sample marked by a variable, as matrix{p_end}
+{synopt:{bf:st_data(varnames::Vector{<:String}, sample::String)}}Get variables, with sample marked by a variable, as matrix{p_end}
 {synopt:{bf:st_view(varnames::String)}}Get Stata variables in space-delimited list, as view{p_end}
 {synopt:{bf:st_view(varnames::Vector{<:String})}}Get Stata variables in string vector, as view{p_end}
 {synopt:{bf:st_view(varnames::String, sample::Vector{Bool})}}Get Stata variables, with sample restriction, as view{p_end}
 {synopt:{bf:st_view(varnames::Vector{<:String}, sample::Vector{Bool})}}Get Stata variables, with sample restriction, as view{p_end}
+{synopt:{bf:st_view(varnames::String, sample::String)}}Get variables, with sample marked by a variable, as view{p_end}
+{synopt:{bf:st_view(varnames::Vector{<:String}, sample::String)}}Get variables, with sample marked by a variable, as view{p_end}
 {synoptline}
 {p2colreset}{...}
 

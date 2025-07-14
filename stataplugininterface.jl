@@ -315,6 +315,13 @@ function st_data(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool
     stataplugininterface.M
 end
 st_data(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_data(split(varnames), sample)
+st_data(varnames, sample::String) = st_data(varnames, st_view(sample))
+
+function st_data(varnames, sample::AbstractMatrix{<:Number}) 
+    @assert isone(size(sample,2)) "Sample indicator must be a vector or a single-column matrix"
+    st_data(varnames, vec(collect(sample .!= 0)))
+end
+    
 
 """
     st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool}=Bool[])::Matrix{Float64}
@@ -340,6 +347,12 @@ function st_view(varnames::AbstractVector{<:AbstractString}, sample::Vector{Bool
     end
 end
 st_view(varnames::AbstractString, sample::Vector{Bool}=Bool[]) = st_view(split(varnames), sample)
+st_view(varnames, sample::String) = st_view(varnames, st_view(sample))
+
+function st_view(varnames, sample::AbstractMatrix{<:Number}) 
+    @assert isone(size(sample,2)) "Sample indicator must be a vector or a single-column matrix"
+    st_view(varnames, vec(collect(sample .!= 0)))
+end
 
 import Base.size, Base.getindex, Base.setindex!
 size(v::st_view) = v.nrows, v.ncols

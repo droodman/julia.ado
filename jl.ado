@@ -1,4 +1,4 @@
-*! jl 1.1.8 9 May 2025
+*! jl 1.1.9 14 July 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -347,7 +347,7 @@ program define jl, rclass
       plugin call _julia, PutMatToMat `namelist' `destination'
     }
     else {
-      di as err `"`cmd' is not a valid subcommand."'
+      di as err `"`cmd' is not a valid subcommand. Did you forget the ":" after "jl"?"'
       exit 198
     }
   }
@@ -494,3 +494,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.6 Fix 1.1.5 crash
 * 1.1.7 Automatically load InteractiveUtils
 * 1.1.8 Error if running under Rosetta
+* 1.1.9 Fix st_data() crash in macOS.Made st_data() and st_view() accept varname for sample marker
