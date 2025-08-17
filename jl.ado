@@ -1,4 +1,4 @@
-*! jl 1.2.0 17 August 2025
+*! jl 1.1.10 17 August 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -502,4 +502,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.7 Automatically load InteractiveUtils
 * 1.1.8 Error if running under Rosetta
 * 1.1.9 Fix st_data() crash in macOS.Made st_data() and st_view() accept varname for sample marker
-* 1.2.0 Strip backticks from returned errors messages to prevent "unmatched quote" error. Updat
+* 1.1.10 Strip backticks from returned errors messages to prevent "unmatched quote" error. Updat
