@@ -388,8 +388,8 @@ STDLL stata_call(int argc, char* argv[])
         }
 
         if (hDLL == NULL) {
-            SF_error((char*)"Julia is not running inside Stata. Please call {cmd:jl start} first.");
-            SF_error((char*)"If Julia was in fact started already, then Stata has destroyed the Julia instance for mysterious reasons.");
+            SF_error((char*)"Julia is not running inside Stata. If Julia was in fact started already ");
+            SF_error((char*)"then Stata has destroyed the Julia instance. You probably need to restart Stata.");
             return 999;
         }
 

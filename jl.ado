@@ -1,4 +1,4 @@
-*! jl 1.1.9 14 July 2025
+*! jl 1.2.0 17 August 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -41,7 +41,7 @@ cap program drop assure_julia_started
 program define assure_julia_started
   version 14.1
 
-  if `"$julia_loaded"' == "" {
+  nobreak if `"$julia_loaded"' == "" {
     tempfile stdio stderr
     tempname rc
 
@@ -158,7 +158,9 @@ program define GetVarsFromDF
     }
   if "`replace'"=="" confirm new var `namelist'
   cap noi plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
+  local __jlans = subinstr("`__jlans'", "`", "'", .)
   _assert !_rc, msg(`"`__jlans'"') rc(198)
+
   local types `__jlans'
   local ncols: word count `cols'
   forvalues v=1/`ncols' {
@@ -168,24 +170,29 @@ program define GetVarsFromDF
     cap gen `type' `name' = `=cond(substr("`type'",1,3)=="str", `""""', ".")'
 
     cap noi plugin call _julia, eval "Int(`source'.`col' isa CategoricalVector)"
+    local __jlans = subinstr("`__jlans'", "`", "'", .)
     _assert !_rc, msg(`"`__jlans'"') rc(198)
     if `__jlans' {
       cap noi plugin call _julia, evalqui `"st_local("labeldef", join([string(i) * " %" * l * "% " for (i,l) in enumerate(levels(`source'.`col'))], " "))"'
+      local __jlans = subinstr("`__jlans'", "`", "'", .)
       _assert !_rc, msg(`"`__jlans'"') rc(198)
       label define `name' `=subinstr(`"`labeldef'"', "%", `"""', .)', replace
       label values `name' `name'
     }
   }
   cap noi plugin call _julia `namelist' `if' `in', GetVarsFromDF`missing' `"`source'"' _cols `:strlen local cols' `ncols'
+  local __jlans = subinstr("`__jlans'", "`", "'", .)
   _assert !_rc, msg(`"`__jlans'"') rc(198)
   
   forvalues v=1/`ncols' {
     local col : word `v' of `cols'
     local name: word `v' of `namelist'
     cap noi plugin call _julia, eval "Int(`source'.`col' |> eltype |> nonmissingtype <: Date)"
+    local __jlans = subinstr("`__jlans'", "`", "'", .)
     _assert !_rc, msg(`"`__jlans'"') rc(198)
     if `__jlans' format %td `name'
     cap noi plugin call _julia, eval "Int(`source'.`col' |> eltype |> nonmissingtype <: DateTime)"
+    local __jlans = subinstr("`__jlans'", "`", "'", .)
     _assert !_rc, msg(`"`__jlans'"') rc(198)
     if `__jlans' format %tc `name'  // NOT %tC
   }
@@ -238,7 +245,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 1.0.1
+    return local version 1.2.0
     exit
   }
 
@@ -495,3 +502,4 @@ program _julia, plugin using(jl.plugin)
 * 1.1.7 Automatically load InteractiveUtils
 * 1.1.8 Error if running under Rosetta
 * 1.1.9 Fix st_data() crash in macOS.Made st_data() and st_view() accept varname for sample marker
+* 1.2.0 Strip backticks from returned errors messages to prevent "unmatched quote" error. Updat
