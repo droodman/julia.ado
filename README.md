@@ -10,11 +10,11 @@ ssc install julia
 ```
 
 ## Documentation
-After installing, type `help jl`. Also see the [working paper](https://github.com/droodman/julia.ado/blob/master/doc/julia.pdf) in the /doc folder.
+After installing, type `help jl`. Also see the [preprint](https://arxiv.org/abs/2404.09309) or[ _Stata Journal_ article](https://doi.org/10.1177/1536867X251341105).
 
 ## Requirements
-* Julia 1.11.1 or later, installed following the instructions obtained via `help jl` in Stata after installing this pacakge.
 * Stata 14.1 or later
+* Julia 1.11. The package will install Julia for you on first use, in a dedicated "1.11" channel through [Juliaup](https://github.com/JuliaLang/juliaup).
   
 ## Examples
 
