@@ -83,7 +83,7 @@ struct {  // https://github.com/JuliaLang/juliaup/issues/758#issuecomment-183262
 #define JL_unbox_int64        julia_fptrs.jl_unbox_int64
 #define JL_unbox_float32      julia_fptrs.jl_unbox_float32
 #define JL_unbox_float64      julia_fptrs.jl_unbox_float64
-#define JL_unbox_voidpointer      julia_fptrs.jl_unbox_voidpointer
+#define JL_unbox_voidpointer  julia_fptrs.jl_unbox_voidpointer
 #define JL_string_ptr         julia_fptrs.jl_string_ptr
 #define JL_exception_occurred julia_fptrs.jl_exception_occurred
 #define JL_call2              julia_fptrs.jl_call2

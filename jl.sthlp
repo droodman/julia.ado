@@ -76,7 +76,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl GetEnv}
 
 {phang}
-{cmd:jl AddPkg} {it:name}, [{opt min:ver(string)}]
+{cmd:jl AddPkg} {it:name}, [{opt ver:sion(string)} {opt min:version(string)}]
 
 {phang}
 {cmd:jl version}
@@ -167,10 +167,11 @@ The {cmd:GetEnv} displays the name and location of the current package environme
 saves the results as r() macros.
 
 {pstd}
-The {cmd:AddPkg} subcommand updates a package to the latest version in Julia's general registry if the package is not installed at all, or if
-the current version is below that set by the optional {opt min:ver()} option. It operates within
-the current Julia package environment. So {cmd:jl AddPkg ...} followed by {cmd:jl SetEnv ...} will generally
-have a different effect than the same commands in the opposite order.
+The {cmd:AddPkg} subcommand installs or updates a package from Julia's general registry. If no options are specified, it installs the latest
+version. If the {opt ver:sion()} option is specified it installs, upgrades, or downgrades to that version. If the
+{opt min:version()} option is used instead, the latest version of the package will be installed unless the package is already installed with version 
+at or above the minimum specified. The {cmd:AddPkg} subcommand operates within the current Julia package environment. So {cmd:jl AddPkg ...} followed by 
+{cmd:jl SetEnv ...} will generally have a different effect than the same commands in the opposite order.
 
 
 {marker installation}{...}
