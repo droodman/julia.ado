@@ -156,8 +156,9 @@ can be prevented with the {opt nolab:el} option.
 The {cmd:SetEnv} subcommand switches to a package environment associated with the supplied 
 name. This is useful when writing Julia-based Stata programs that need to install certain Julia
 packages. Switching to a dedicated environment minimizes version conflicts with packages
-downloaded for other purposes. The directory used for the dedicated environment will be a 
-subdirectory of Julia's default environment directory, for example,
+downloaded for other purposes. The environment will be a "{browse "https://pkgdocs.julialang.org/v1/environments/#Shared-environments":shared environment},"
+meaning that it will be a 
+subdirectory of Julia's main environment directory, for example,
 "`~/.julia/environments/MyEnvironment". If it does not exist, it will be created,
 and populated with the DataFrames and CategoricalArrays packages. Calling {cmd:SetEnv} without any arguments reverts to
 the default package environment.
