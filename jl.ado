@@ -280,17 +280,18 @@ program define jl, rclass
 
     if inlist(`"`cmd'"',"SetEnv","GetEnv") {
       qui if "`cmd'"=="SetEnv" {
-        plugin call _julia, evalqui `"Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))"'  // move to an environment specific to this package
+        if `"`1'"'=="" plugin call _julia, evalqui "Pkg.activate()"  // return to default environment
+                  else plugin call _julia, evalqui `"Pkg.activate("`1'", shared=true)"'  // named, shared environment
+//         plugin call _julia, evalqui `"Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))"'  // move to an environment specific to this package
         AddPkg DataFrames, ver(1.8.1)
         AddPkg CategoricalArrays, ver(1.0.2)
       }
-      return local env: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.active_project())"'
       local __jlans `__jlans'  // strip quotes
-      return local envdir: subinstr local __jlans "\\" "\", all
+      local envdir: subinstr local __jlans "\\" "\", all
       plugin call _julia, eval `"dirname(Base.load_path_expand("@v#.#"))"'
       local __jlans: subinstr local __jlans "\\" "\", all
-      if "`return(envdir)'" == `__jlans' return local env .
+      if "`envdir'" == `__jlans' return local env @v$JULIA_COMPAT_VERSION
       else {
         plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
         return local env `__jlans'  // strip quotes

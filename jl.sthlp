@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 1.1.0 8nov2024}{...}
+{* *! jl 1.2.1 8nov2025}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -157,9 +157,9 @@ The {cmd:SetEnv} subcommand switches to a package environment associated with th
 name. This is useful when writing Julia-based Stata programs that need to install certain Julia
 packages. Switching to a dedicated environment minimizes version conflicts with packages
 downloaded for other purposes. The directory used for the dedicated environment will be a 
-subdirectory of Julia's default package environment directory, for example,
-"`~/.julia/environments/v1.10/MyEnvironment". It will be created if it does not exist. If new,
-it will only have the DataFrames package. Calling {cmd:SetEnv} without any arguments reverts to
+subdirectory of Julia's default environment directory, for example,
+"`~/.julia/environments/MyEnvironment". If it does not exist, it will be created,
+and populated with the DataFrames and CategoricalArrays packages. Calling {cmd:SetEnv} without any arguments reverts to
 the default package environment.
 
 {pstd}
