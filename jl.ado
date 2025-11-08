@@ -1,4 +1,4 @@
-*! jl 1.2.0 8 November 2025
+*! jl 1.2.1 8 November 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -249,7 +249,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 1.2.0
+    return local version 1.2.1
     exit
   }
 
