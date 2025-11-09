@@ -113,8 +113,8 @@ program define assure_julia_started
  
     cap noi {
       plugin call _julia, evalqui "using Pkg"
-      AddPkg DataFrames, minver(1.6.1)
-      AddPkg CategoricalArrays, minver(0.10.8)
+      AddPkg DataFrames, ver(1.8.1)
+      AddPkg CategoricalArrays, ver(1.0.2)
       plugin call _julia, evalqui "using DataFrames, CategoricalArrays, Dates, InteractiveUtils"
 
       qui findfile stataplugininterface.jl
@@ -280,6 +280,7 @@ program define jl, rclass
 
     if inlist(`"`cmd'"',"SetEnv","GetEnv") {
       qui if "`cmd'"=="SetEnv" {
+        local 1: subinstr local 1 "@" ""
         if `"`1'"'=="" plugin call _julia, evalqui "Pkg.activate()"  // return to default environment
                   else plugin call _julia, evalqui `"Pkg.activate("`1'", shared=true)"'  // named, shared environment
 //         plugin call _julia, evalqui `"Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))"'  // move to an environment specific to this package
