@@ -162,7 +162,7 @@ program define GetVarsFromDF
     }
   if "`replace'"=="" confirm new var `namelist'
   cap noi plugin call _julia, eval `"stataplugininterface.statatypes(`source', "`cols'")"'
-  local __jlans = subinstr("`__jlans'", "`", "'", .)
+  local __jlans = subinstr(`__jlans', "`", "'", .)
   _assert !_rc, msg(`"`__jlans'"') rc(198)
 
   local types `__jlans'
@@ -240,7 +240,16 @@ program define PutVarsToDF
         }
         cap noi plugin call _julia, evalqui `"`destination'.`col' = CategoricalVector(recode(`destination'.`col' `recodecmd'))"'
       }
-    }        
+    }      
+  }
+    
+  foreach char in `:char _dta[]' {
+    plugin call _julia, evalqui `"metadata!(`destination', `char', """`:char _dta[`char']'""", style=:note)"'
+  }
+  foreach var in `cols' {
+    foreach char in `:char `var'[]' {
+      plugin call _julia, evalqui `"colmetadata!(`destination', `var', `char', """`:char `var'[`char']'""", style=:note)"'
+    }
   }
 end
 

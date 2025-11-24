@@ -272,6 +272,20 @@ function st_local(mac::AbstractString, tosave::AbstractString)
 end
 
 """
+    st_local(mac::AbstractString)
+
+Returns value of a Stata local macro named.
+ONLY for internal use, as it can only access the locals in the program calling `plugin call _julia`
+"""
+function st_local(mac::AbstractString)
+    rc = @ccall dllpath[]. Meta.parse(raw""" metadata!(df, note1, """From Consumer Reports with permission""", style=:note) """)(("_"*mac)::Cstring, tosave::Cstring)::Cint
+    rc!=0 && throw(rc)
+    mac ∉ Set(("___jlans","___jlcomplete")) &&
+        SF_macro_save("___jllocals", SF_macro_use("___jllocals") * " " * mac)  # add to Stata local "__jllocals"
+    nothing
+end
+
+"""
     st_matrix(matname::AbstractString)::Matrix{Float64}
     st_matrix(matname::AbstractString, jlmat::AbstractMatrix{<:Number})
 
