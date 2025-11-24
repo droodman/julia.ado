@@ -18,7 +18,6 @@
   
 global JULIA_COMPAT_VERSION 1.11
 
-
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
 program define wheresjulia, rclass
@@ -243,14 +242,14 @@ program define PutVarsToDF
     }      
   }
     
-  foreach char in `:char _dta[]' {
-    plugin call _julia, evalqui `"metadata!(`destination', `char', """`:char _dta[`char']'""", style=:note)"'
-  }
-  foreach var in `cols' {
-    foreach char in `:char `var'[]' {
-      plugin call _julia, evalqui `"colmetadata!(`destination', `var', `char', """`:char `var'[`char']'""", style=:note)"'
-    }
-  }
+//   foreach char in `:char _dta[]' {
+//     plugin call _julia, evalqui `"metadata!(`destination', `char', """`:char _dta[`char']'""", style=:note)"'
+//   }
+//   foreach var in `cols' {
+//     foreach char in `:char `var'[]' {
+//       plugin call _julia, evalqui `"colmetadata!(`destination', `var', `char', """`:char `var'[`char']'""", style=:note)"'
+//     }
+//   }
 end
 
 cap program drop jl
