@@ -124,7 +124,6 @@ program define assure_julia_started
     }
     global julia_loaded = !_rc
   }
-  adsf
 end
 
 cap program drop AddPkg
