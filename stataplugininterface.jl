@@ -14,7 +14,7 @@ public setdllpath, x, k, julia_task, julia_time, pushstring!
 
 global macrobuf = Vector{Int8}(undef, 15_480_200+1)  # can hold maximum-sized Stata macro
 
-pushstring!(target, val, index) = target[index[]+=1]=val  # helper function for copying string data from Stata to Julia
+pushstring!(target, val, index) = (index[]+=1; target[index[]]=val)  # helper function for copying string data from Stata to Julia
 
 """
     st_varindex(s::AbstractString, abbrev::Bool=true)

@@ -560,14 +560,13 @@ STDLL stata_call(int argc, char* argv[])
                 }
 #endif
 
-            jl_value_t* k = JL_eval("stataplugininterface.k=[0]");  // root k in case of GC during JL_call3; make a vector to use setindex! on it. Just for string copying.
-            jl_value_t *helper = JL_eval("stataplugininterface.pushstring!");  //for string copying only
+            jl_value_t *helper = JL_eval("stataplugininterface.pushstring!");  // for string copying only
 
             for (ST_int i = 0; i < SF_nvars(); i++)  // string var copying not thread-safe
 		 	    if (types[i]==7) {
                     ST_int ip1 = i + 1;
-
                     ST_int len;
+                    jl_value_t* k = JL_eval("stataplugininterface.k=[0]");  // root k in case of GC during JL_call3; make a vector to use setindex! on it. Just for string copying.
 
                     if (SF_var_is_strl(ip1))
                         if (touse) {
@@ -577,7 +576,7 @@ STDLL stata_call(int argc, char* argv[])
                                     len = SF_sdatalen(ip1, j);
                                     char* val = (char*)malloc((len + 1) * sizeof(char));
                                     SF_strldata(ip1, j, val, len + 1);
-                                    JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), k);
+                                    JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), k);  // val -> pxs[i][++k]
                                     free(val);
                                 }
                         } else
@@ -585,7 +584,7 @@ STDLL stata_call(int argc, char* argv[])
                                 len = SF_sdatalen(ip1, j);
                                 char* val = (char*)malloc((len + 1) * sizeof(char));
                                 SF_strldata(ip1, j, val, len + 1);
-                                JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), k);
+                                JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, len), k);  // val -> pxs[i][++k]
                                 free(val);
                            }
                     else {  // regular string
@@ -595,12 +594,12 @@ STDLL stata_call(int argc, char* argv[])
                             for (ST_int j = SF_in1(); j <= SF_in2(); j++)
                                 if (*_tousej++) {
                                     SF_sdata(ip1, j, val);
-                                    JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), k);
+                                    JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), k);  // val -> pxs[i][++k]
                                 }
                         } else
                             for (ST_int j = 1; j <= nobs; j++) {
                                 SF_sdata(ip1, j, val);
-                                JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), k);
+                                JL_call3(helper, (jl_value_t*)pxs[i], JL_pchar_to_string(val, strlen(val)), k);  // val -> pxs[i][++k]
                             }
                     }
                 }

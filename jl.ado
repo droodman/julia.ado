@@ -1,4 +1,4 @@
-*! jl 1.2.1 8 November 2025
+*! jl 1.2.2 26 November 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -124,6 +124,7 @@ program define assure_julia_started
     }
     global julia_loaded = !_rc
   }
+  adsf
 end
 
 cap program drop AddPkg
@@ -517,4 +518,6 @@ program _julia, plugin using(jl.plugin)
 * 1.1.8 Error if running under Rosetta
 * 1.1.9 Fix st_data() crash in macOS.Made st_data() and st_view() accept varname for sample marker
 * 1.1.10 Strip backticks from returned errors messages to prevent "unmatched quote" error.
-* 1.2.0  Add version() option to AddPkg to give complete control of installed version.
+* 1.2.1  Add version() option to AddPkg to give complete control of installed version.
+*        Change environments accessed by SetEnv to be subdirectories of environments not environments/v1.11, like regular shared environments.
+* 1.2.2  Fix bug in GetVarsFromDF causing loss of type info and in particular loss of string var values
