@@ -1,4 +1,4 @@
-*! jl 1.2.3 3 December 2025
+*! jl 1.2.4 4 December 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -42,10 +42,9 @@ program define assure_julia_started
 
   nobreak if `"$julia_loaded"' == "" {
     tempfile stdio stderr
-    tempname rc
 
-    if c(os)=="MacOSX" & c(machine_type)=="Macintosh (Intel 64-bit)" {
-      !sysctl -n sysctl.proc_translated > "`stdio'"
+    if c(os)=="MacOSX" & c(machine_type)=="Mac (Apple Silicon)" {
+      qui !sysctl -n sysctl.proc_translated > "`stdio'"
       cap mata st_local("rc", _fget(_julia_fh = _fopen("`stdio'", "r")))
       cap mata fclose(_julia_fh)
       _assert "`rc'"!="1", msg("Can't load Julia when running under Rosetta. Disable Rosetta for Stata, restart Stata, and reinstall the julia package with {cmd:ssc install julia, replace}.") rc(198)
@@ -74,6 +73,7 @@ program define assure_julia_started
       }
       local bindir `r(bindir)'
 
+      tempname rc
       qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
       qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
       cap mata _fclose(_julia_fh)
@@ -112,8 +112,7 @@ program define assure_julia_started
  
     cap noi {
       plugin call _julia, evalqui "using Pkg"
-      AddPkg DataFrames, ver(1.8.1)
-      AddPkg CategoricalArrays, ver(1.0.2)
+      SetEnv
       plugin call _julia, evalqui "using DataFrames, CategoricalArrays, Dates, InteractiveUtils"
 
       qui findfile stataplugininterface.jl
@@ -124,6 +123,15 @@ program define assure_julia_started
     }
     global julia_loaded = !_rc
   }
+end
+
+cap program drop SetEnv
+program define SetEnv
+  local 1: subinstr local 1 "@" ""
+  if `"`1'"'=="" plugin call _julia, evalqui `"Pkg.activate("Stata", shared=true)"'  // return to default environment
+            else plugin call _julia, evalqui `"Pkg.activate("`1'", shared=true)"'  // named, shared environment
+  AddPkg DataFrames, ver(1.8.1)
+  AddPkg CategoricalArrays, ver(1.0.2)
 end
 
 cap program drop AddPkg
@@ -288,12 +296,7 @@ program define jl, rclass
 
     if inlist(`"`cmd'"',"SetEnv","GetEnv") {
       qui if "`cmd'"=="SetEnv" {
-        local 1: subinstr local 1 "@" ""
-        if `"`1'"'=="" plugin call _julia, evalqui "Pkg.activate()"  // return to default environment
-                  else plugin call _julia, evalqui `"Pkg.activate("`1'", shared=true)"'  // named, shared environment
-//         plugin call _julia, evalqui `"Pkg.activate(joinpath(dirname(Base.load_path_expand("@v#.#")), "`1'"))"'  // move to an environment specific to this package
-        AddPkg DataFrames, ver(1.8.1)
-        AddPkg CategoricalArrays, ver(1.0.2)
+        SetEnv `1'
       }
       plugin call _julia, eval `"dirname(Base.active_project())"'
       local __jlans `__jlans'  // strip quotes
@@ -521,3 +524,4 @@ program _julia, plugin using(jl.plugin)
 *        Change environments accessed by SetEnv to be subdirectories of environments not environments/v1.11, like regular shared environments.
 * 1.2.2  Fix bug in GetVarsFromDF causing loss of type info and in particular loss of string var values
 * 1.2.3  Fix bug with PutVarsToDF and multiple string columns
+* 1.2.4  Default to environment named "Stata". Check for Rosetta on ARM Macs, not Intel Macs, duh.
