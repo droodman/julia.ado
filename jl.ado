@@ -1,4 +1,4 @@
-*! jl 1.2.2 26 November 2025
+*! jl 1.2.3 3 December 2025
 *! Copyright (C) 2023-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -520,3 +520,4 @@ program _julia, plugin using(jl.plugin)
 * 1.2.1  Add version() option to AddPkg to give complete control of installed version.
 *        Change environments accessed by SetEnv to be subdirectories of environments not environments/v1.11, like regular shared environments.
 * 1.2.2  Fix bug in GetVarsFromDF causing loss of type info and in particular loss of string var values
+* 1.2.3  Fix bug with PutVarsToDF and multiple string columns
