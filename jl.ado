@@ -1,5 +1,5 @@
-*! jl 1.2.4 4 December 2025
-*! Copyright (C) 2023-25 David Roodman
+*! jl 1.2.5 11 January 2026
+*! Copyright (C) 2023-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -127,11 +127,41 @@ end
 
 cap program drop SetEnv
 program define SetEnv
-  local 1: subinstr local 1 "@" ""
-  if `"`1'"'=="" plugin call _julia, evalqui `"Pkg.activate("Stata", shared=true)"'  // return to default environment
-            else plugin call _julia, evalqui `"Pkg.activate("`1'", shared=true)"'  // named, shared environment
-  AddPkg DataFrames, ver(1.8.1)
-  AddPkg CategoricalArrays, ver(1.0.2)
+  syntax [anything], [project(string) manifest(string) UPdate replace pin]
+  _assert `"`manifest'"'=="" | `"`project'"'!="", msg(Must specify {cmd:project()} too when specifying {cmd:manifest()}) rc(198)
+  if `"`project'`manifest'"'=="" & "`update'`replace'`pin'"!="" di as txt _n "{cmd:`update' `replace' `pin'} ignored for lack of {cmd:project()} option"
+
+  local anything: subinstr local anything "@" ""
+  if "`anything'"=="" local anything Stata
+  plugin call _julia, evalqui `"Pkg.activate("`anything'", shared=true)"'  // named, shared environment
+
+  if `"`project'"'=="" {
+    AddPkg DataFrames, ver(1.8.1)
+    AddPkg CategoricalArrays, ver(1.0.2)
+  }
+  else {
+    plugin call _julia, eval `"dirname(Base.active_project())"'
+    local envdir `__jlans'  // strip quotes
+    local envdir: subinstr local envdir "\\" "\", all
+    
+    plugin call _julia, eval `"isdir(raw"`envdir'")"'
+    if `"`__jlans'"'=="false" {
+      plugin call _julia, evalqui "Pkg.instantiate()"  // force creation of directory for brand new package environment
+      local replace replace
+    }
+    else if "`update'"!="" {  // are current .toml files either missing or older?
+      plugin call _julia, eval `"!isfile(raw"`envdir'/Project.toml") || !isfile(raw"`envdir'/Manifest.toml") || (isfile(raw"`project'") && mtime(raw"`envdir'/Project.toml") < mtime(raw"`project'")) || (isfile(raw"`manifest'") && mtime(raw"`envdir'/Manifest.toml") < mtime(raw"`manifest'"))"'
+      if `"`__jlans'"'=="true" local replace replace
+        else exit
+    }
+
+    copy `project' `envdir'/Project.toml, `replace'
+    copy `manifest' `envdir'/Manifest.toml, `replace'
+    di as txt _n "Instatiating a newly imported package environment. This could take a few minutes."
+    mata displayflush()
+    plugin call _julia, evalqui "Pkg.instantiate()"
+  }
+  if "`pin'"!="" plugin call _julia, evalqui "Pkg.pin(all_pkgs = true)"
 end
 
 cap program drop AddPkg
@@ -265,7 +295,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 1.2.1
+    return local version 1.2.5
     exit
   }
 
@@ -296,7 +326,7 @@ program define jl, rclass
 
     if inlist(`"`cmd'"',"SetEnv","GetEnv") {
       qui if "`cmd'"=="SetEnv" {
-        SetEnv `1'
+        SetEnv `0'
       }
       plugin call _julia, eval `"dirname(Base.active_project())"'
       local __jlans `__jlans'  // strip quotes
@@ -308,8 +338,8 @@ program define jl, rclass
         plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
         return local env `__jlans'  // strip quotes
       }
-      di as txt `"Current environment: `=cond("`return(env)'"==".","(default)","`return(env)'")', at `return(envdir)'"' _n
-      jlcmd: Pkg.status()
+      di as txt `"Current environment: `=cond("`return(env)'"==".","(default)","`return(env)'")', at `return(env)'"' _n
+      jlcmd, norepl: Pkg.status()
     }
     else if `"`cmd'"'=="AddPkg" AddPkg `0'
     else if `"`cmd'"'=="use" {
