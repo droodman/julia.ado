@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 1.2.1 8nov2025}{...}
+{* *! jl 1.2.5 11jan2026}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -70,7 +70,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
 
 {phang}
-{cmd:jl SetEnv} [{it:name}]
+{cmd:jl SetEnv} [{it:name}], [{opt project(filename)} {opt manifest(filename)} {opt up:date} {opt replace} {opt pin}]
 
 {phang}
 {cmd:jl GetEnv}
@@ -162,6 +162,20 @@ subdirectory of Julia's main environment directory, for example,
 "`~/.julia/environments/MyEnvironment". If it does not exist, it will be created,
 and populated with the DataFrames and CategoricalArrays packages. Calling {cmd:SetEnv} without any arguments reverts to
 the default package environment.
+
+{pstd}
+A Julia package environment is nothing more that a {browse "https://pkgdocs.julialang.org/v1/toml-files/":folder with two files in it}, named Project.toml and Manifest.toml. Project.toml is a human-readable text file that provides
+a high-level description of the environment, including which packages, in which versions, have been installed in it. Manifest.toml, though also a text file, is meant to be written
+and read by Julia. It contains an exact record of the packages a user has installed, as well as all the dependency packages required thereby, which can number in the hundreds. Collectively, 
+these dependencies are updated almost every week by their maintainers on GitHub. As a result, it is easy for two users at two different times to seemingly install the same packages, yet 
+create package environments with subtle differences. Sometimes the "subtle" differences will cause dramatic crashes. By distributing
+Project.toml and Manifest.toml, you can prevent this failure mode and ensure exact replicability of a Julia-based project. You can also make a Julia-based Stata program more reliable by nailing down the contents of the package 
+environment the program runs in. In the {cmd:jl SetEnv} subcommand, the {opt project(filename)} and {opt manifest(filename)} options allow you to inject these files into a new or existing package 
+environment. Appending the {opt replace} option forces
+overwriting of the existing .toml files, while {opt up:date} will only copy the files if the environment's current ones are older or missing. After the copying, {cmd:jl SetEnv} will call the Julia
+package manager's {browse "https://pkgdocs.julialang.org/v1/api/#Pkg.instantiate":instantiate()} function to locally install all packages according to the new .toml files. In addition, the {opt pin} option will
+instruct {cmd:jl SetEnv} to run the {browse "https://pkgdocs.julialang.org/v1/api/#Pkg.pin":pin()} function to lock down current package versions in this environment. None of these changes will affect other
+package environments on the same computer.
 
 {pstd}
 The {cmd:GetEnv} displays the name and location of the current package environment and

@@ -155,8 +155,8 @@ program define SetEnv
         else exit
     }
 
-    copy `project' `envdir'/Project.toml, `replace'
-    copy `manifest' `envdir'/Manifest.toml, `replace'
+    copy "`project'" "`envdir'/Project.toml", `replace'
+    copy "`manifest'" "`envdir'/Manifest.toml", `replace'
     di as txt _n "Instatiating a newly imported package environment. This could take a few minutes."
     mata displayflush()
     plugin call _julia, evalqui "Pkg.instantiate()"
