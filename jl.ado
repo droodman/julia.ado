@@ -16,7 +16,7 @@
 
 * Version history at bottom
   
-global JULIA_COMPAT_VERSION 1.11
+global JULIA_COMPAT_VERSION 1.12
 
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
 cap program drop wheresjulia
