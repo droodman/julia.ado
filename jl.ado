@@ -295,7 +295,7 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    return local version 1.2.5
+    return local version 1.3.0
     exit
   }
 
