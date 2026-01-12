@@ -1,4 +1,4 @@
-*! jl 1.2.5 11 January 2026
+*! jl 1.3.0 12 January 2026
 *! Copyright (C) 2023-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -555,3 +555,4 @@ program _julia, plugin using(jl.plugin)
 * 1.2.2  Fix bug in GetVarsFromDF causing loss of type info and in particular loss of string var values
 * 1.2.3  Fix bug with PutVarsToDF and multiple string columns
 * 1.2.4  Default to environment named "Stata". Check for Rosetta on ARM Macs, not Intel Macs, duh.
+* 1.3.0  Add project(), manifest(), update, replace, and pin options to SetEnv
