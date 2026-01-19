@@ -14,7 +14,7 @@ d
 d KW: Julia
 d KW: plugins
 d
-d Requires: Stata version 14.1 and Julia 1.11.1
+d Requires: Stata version 14.1; will install Julia 1.12
 d
 d Distribution-Date: 20241108
 d
@@ -25,6 +25,8 @@ f jl.ado
 f _jl.ado
 f jl.sthlp
 F stataplugininterface.jl
+F jl_project.toml
+F jl_manifest.tolm
 G WIN64 jl.pluginWIN64.dll jl.plugin
 G MACARM64 jl.pluginMACARM64 jl.plugin
 G OSX.ARM64 jl.pluginMACARM64 jl.plugin
