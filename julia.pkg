@@ -26,7 +26,7 @@ f _jl.ado
 f jl.sthlp
 F stataplugininterface.jl
 F jl_project.toml
-F jl_manifest.tolm
+F jl_manifest.toml
 G WIN64 jl.pluginWIN64.dll jl.plugin
 G MACARM64 jl.pluginMACARM64 jl.plugin
 G OSX.ARM64 jl.pluginMACARM64 jl.plugin
