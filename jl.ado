@@ -564,3 +564,4 @@ program _julia, plugin using(jl.plugin)
 * 1.2.4  Default to environment named "Stata". Check for Rosetta on ARM Macs, not Intel Macs, duh.
 * 2.0.0  Add project(), manifest(), update, replace, and pin options to SetEnv. Move to Julia 1.12.
 *        Breaking change require "@" prefix in SetEnv to refer to shared package environment.
+*        Add jl_project.toml and jl_manifest.toml.
