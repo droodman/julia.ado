@@ -1,5 +1,5 @@
 {smcl}
-{* *! jl 1.2.5 11jan2026}{...}
+{* *! jl 2.0.0 18jan2026}{...}
 {help jl:jl}
 {hline}{...}
 
@@ -34,8 +34,8 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {synopt:{opt GetVarsFromMat}}Copy Stata variables from Julia matrix, mapping NaN to missing{p_end}
 {synopt:{opt PutMatToMat}}Copy Stata matrix to Julia matrix, mapping missing to NaN{p_end}
 {synopt:{opt GetMatFromMat}}Copy Stata matrix from Julia matrix, mapping NaN to missing{p_end}
-{synopt:{opt SetEnv}}Switch to named package environment{p_end}
-{synopt:{opt GetEnv}}Get name of current package environment{p_end}
+{synopt:{opt SetEnv}}Switch package environments{p_end}
+{synopt:{opt GetEnv}}Get path of current package environment{p_end}
 {synopt:{opt AddPkg}}Install Julia package if not installed, or update if version below threshold{p_end}
 {synopt:{opt version}}Get version of installed {cmd:jl} package{p_end}
 {synoptline}
@@ -70,7 +70,7 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
 
 {phang}
-{cmd:jl SetEnv} [{it:name}], [{opt project(filename)} {opt manifest(filename)} {opt up:date} {opt replace} {opt pin}]
+{cmd:jl SetEnv} [{it:path} | @{it:name} | .}, [{opt project(filename)} {opt manifest(filename)} {opt up:date} {opt replace} {opt pin}]
 
 {phang}
 {cmd:jl GetEnv}
@@ -156,12 +156,12 @@ can be prevented with the {opt nolab:el} option.
 The {cmd:SetEnv} subcommand switches to a package environment associated with the supplied 
 name. This is useful when writing Julia-based Stata programs that need to install certain Julia
 packages. Switching to a dedicated environment minimizes version conflicts with packages
-downloaded for other purposes. The environment will be a "{browse "https://pkgdocs.julialang.org/v1/environments/#Shared-environments":shared environment},"
-meaning that it will be a 
-subdirectory of Julia's main environment directory, for example,
-"`~/.julia/environments/MyEnvironment". If it does not exist, it will be created,
-and populated with the DataFrames and CategoricalArrays packages. Calling {cmd:SetEnv} without any arguments reverts to
-the default package environment.
+downloaded for other purposes. You can specify the environment as the absolute or relative path to any folder to which you have write access. Or it can be a simple name prefixed by "@",
+meaning that will be a {browse "https://pkgdocs.julialang.org/v1/environments/#Shared-environments":{it:shared} environment}. This will make it a 
+subdirectory of Julia's main environment directory. For example, the default environment is "@Stata", which in macOS and Linux is typically stored at
+"`~/.julia/environments/Stata" and in Windows at "C:\Users\[username]\.julia\environments\Stata". If the environment name in the {cmd: jl SetEnv} command line is empty, or if it 
+is ".", then this default environment is implied. If the new environment does not exist, it will be created,
+and populated with the DataFrames and CategoricalArrays packages.
 
 {pstd}
 A Julia package environment is nothing more that a {browse "https://pkgdocs.julialang.org/v1/toml-files/":folder with two files in it}, named Project.toml and Manifest.toml. Project.toml is a human-readable text file that provides

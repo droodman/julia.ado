@@ -1,4 +1,4 @@
-*! jl 1.3.0 12 January 2026
+*! jl 2.0.0 18 January 2026
 *! Copyright (C) 2023-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 * Version history at bottom
-  
+
 global JULIA_COMPAT_VERSION 1.12
 
 // Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
@@ -131,9 +131,23 @@ program define SetEnv
   _assert `"`manifest'"'=="" | `"`project'"'!="", msg(Must specify {cmd:project()} too when specifying {cmd:manifest()}) rc(198)
   if `"`project'`manifest'"'=="" & "`update'`replace'`pin'"!="" di as txt _n "{cmd:`update' `replace' `pin'} ignored for lack of {cmd:project()} option"
 
-  local anything: subinstr local anything "@" ""
-  if "`anything'"=="" local anything Stata
-  plugin call _julia, evalqui `"Pkg.activate("`anything'", shared=true)"'  // named, shared environment
+  if inlist("`anything'", "", ".", "@Stata") {
+    _assert `"`manifest'`project'`update'`replace'`pin'"'=="", msg(Options not accepted when switching to the default environment) rc(198)
+    local anything @Stata
+    qui findfile jl_project.toml
+    local project `r(fn)'
+    qui findfile jl_manifest.toml
+    local manifest `r(fn)'
+    local update update
+    local pin pin
+  }
+
+  if substr(`"`anything'"',1,1)=="@" {
+    local anything = substr(`"`anything'"',2,.)
+    local sharedopt , shared=true
+  }
+
+  plugin call _julia, evalqui `"Pkg.activate("`anything'" `sharedopt')"'
 
   if `"`project'"'=="" {
     AddPkg DataFrames, ver(1.8.1)
@@ -155,8 +169,8 @@ program define SetEnv
         else exit
     }
 
-    copy "`project'" "`envdir'/Project.toml", `replace'
-    copy "`manifest'" "`envdir'/Manifest.toml", `replace'
+    qui copy "`project'" "`envdir'/Project.toml", `replace'
+    qui copy "`manifest'" "`envdir'/Manifest.toml", `replace'
     di as txt _n "Instatiating a newly imported package environment. This could take a few minutes."
     mata displayflush()
     plugin call _julia, evalqui "Pkg.instantiate()"
@@ -295,8 +309,8 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    di as txt "jl version 1.3.0"
-    return local version 1.3.0
+    di as txt "jl version 2.0.0"
+    return local version 2.0.0
     exit
   }
 
@@ -331,16 +345,8 @@ program define jl, rclass
       }
       plugin call _julia, eval `"dirname(Base.active_project())"'
       local __jlans `__jlans'  // strip quotes
-      local envdir: subinstr local __jlans "\\" "\", all
-      plugin call _julia, eval `"dirname(Base.load_path_expand("@v#.#"))"'
-      local __jlans: subinstr local __jlans "\\" "\", all
-      if "`envdir'" == `__jlans' return local env @v$JULIA_COMPAT_VERSION
-      else {
-        plugin call _julia, eval `"splitpath(Base.active_project())[end-1]"'
-        return local env `__jlans'  // strip quotes
-      }
-      di as txt `"Current environment: `=cond("`return(env)'"==".","(default)","`return(env)'")', at `return(env)'"' _n
-      jlcmd, norepl: Pkg.status()
+      return local envdir: subinstr local __jlans "\\" "\", all
+      jlcmd: Pkg.status()
     }
     else if `"`cmd'"'=="AddPkg" AddPkg `0'
     else if `"`cmd'"'=="use" {
@@ -437,8 +443,8 @@ program define jl, rclass
         }
       }
     }
+    return local ans: copy local ans
   }
-  return local ans: copy local ans
 end
 
 cap program drop jlcmd
@@ -556,4 +562,5 @@ program _julia, plugin using(jl.plugin)
 * 1.2.2  Fix bug in GetVarsFromDF causing loss of type info and in particular loss of string var values
 * 1.2.3  Fix bug with PutVarsToDF and multiple string columns
 * 1.2.4  Default to environment named "Stata". Check for Rosetta on ARM Macs, not Intel Macs, duh.
-* 1.3.0  Add project(), manifest(), update, replace, and pin options to SetEnv
+* 2.0.0  Add project(), manifest(), update, replace, and pin options to SetEnv. Move to Julia 1.12.
+*        Breaking change require "@" prefix in SetEnv to refer to shared package environment.
