@@ -70,10 +70,10 @@ where {it:juliaexpr} is an expression to be evaluated in Julia.
 {cmd:jl GetMatFromMat} {it:matname}, [{opt source(string)}]
 
 {phang}
-{cmd:jl SetEnv} [{it:path} | @{it:name} | .}, [{opt project(filename)} {opt manifest(filename)} {opt up:date} {opt replace} {opt pin}]
+{cmd:jl SetEnv} [{it:path} | @{it:name} | .}, [{opt qui:etly} {opt project(filename)} {opt manifest(filename)} {opt up:date} {opt replace} {opt pin}]
 
 {phang}
-{cmd:jl GetEnv}
+{cmd:jl GetEnv}, [{opt qui:etly}]
 
 {phang}
 {cmd:jl AddPkg} {it:name}, [{opt ver:sion(string)} {opt min:version(string)}]
@@ -178,8 +178,12 @@ instruct {cmd:jl SetEnv} to run the {browse "https://pkgdocs.julialang.org/v1/ap
 package environments on the same computer.
 
 {pstd}
-The {cmd:GetEnv} displays the name and location of the current package environment and
-saves the results as r() macros.
+{cmd:SetEnv}'s {opt qui:etly} option suppresses the display of packages in the current environment. It can save substantial time on first use in Windows 
+by averting some Julia precompilation.
+
+{pstd}
+The {cmd:GetEnv} subcommand displays the name and location of the current package environment and
+saves the results as r() macros. It too accepts {opt qui:etly}.
 
 {pstd}
 The {cmd:AddPkg} subcommand installs or updates a package from Julia's general registry. If no options are specified, it installs the latest

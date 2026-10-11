@@ -5,7 +5,15 @@
 #include <string>
 #include <limits>
 #include "stplugin.h"
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#define __attribute__(attributes)
+#endif
 #include <julia.h>
+#if defined(_MSC_VER) && !defined(__clang__)
+#undef __attribute__
+#endif
+
 using namespace std;
 
 #if SYSTEM==APPLEMAC
@@ -108,6 +116,10 @@ jl_value_t* (*JL_unsafe_makedouble)(jl_value_t*);  // will point to Julia functi
 #define FreeLibrary dlclose
 #endif
 
+
+#define JULIA_ADO_DLL_CANT_LOAD 998
+#define JULIA_ADO_DLL_MISSING 997
+
 HINSTANCE hDLL;
 
 int load_julia(const char* fulllibpath, const char* libdir) {
@@ -119,7 +131,7 @@ int load_julia(const char* fulllibpath, const char* libdir) {
     hDLL = dlopen(fulllibpath, RTLD_LAZY);
 #endif
 
-    if (hDLL == NULL) return 999;
+    if (hDLL == NULL) return JULIA_ADO_DLL_CANT_LOAD;
 
     JL_eval_string = (jl_value_t * (*)(const char*))GetProcAddress(hDLL, "jl_eval_string");
     JL_init = (void (*)(void))GetProcAddress(hDLL, "jl_init");
@@ -345,7 +357,7 @@ STDLL stata_call(int argc, char* argv[])
         // argv[3] = optional: --threads= argument value (number as a string or "auto")
         if (!strcmp(argv[0], "start")) {
             if (load_julia(argv[1], argv[2]))
-                return 998;
+                return JULIA_ADO_DLL_CANT_LOAD;
 
             int ac = 1;
             char** av = (char**)malloc(sizeof(char*) * 2);
@@ -390,7 +402,7 @@ STDLL stata_call(int argc, char* argv[])
         if (hDLL == NULL) {
             SF_error((char*)"Julia is not running inside Stata. If Julia was in fact started already\n");
             SF_error((char*)"then Stata has destroyed the Julia instance. You probably need to restart Stata.\n");
-            return 999;
+            return JULIA_ADO_DLL_MISSING;
         }
 
         // argv[0] = "eval" or "evalqui": evaluate a Julia expression and return plaintext response in Stata local "ans"

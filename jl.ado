@@ -1,4 +1,4 @@
-*! jl 2.0.0 18 January 2026
+*! jl 2.1.0 11 October 2026
 *! Copyright (C) 2023-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -18,19 +18,31 @@
 
 global JULIA_COMPAT_VERSION 1.12
 
-// Take 1 argument, possible path for julia executable, return workable path, if any, in caller's libpath and libname locals; error otherwise
+// Return dll path. If this works, no more shell commands are needed, which saves time especially in Windows
 cap program drop wheresjulia
 program define wheresjulia, rclass
   version 14.1
-  tempfile stdio stderr
-  tempname rc
+  syntax, channel(string)
+  tempfile stdout
+
   foreach bindir in "" `=cond(c(os)!="Windows", "~/.juliaup/bin/", "")' {
-    !`bindir'juliaup -h > "`stdio'" 2> "`stderr'"
-    cap mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
+    cap {
+      !`bindir'julia +`channel' -e "using Libdl; println(dlpath(\"libjulia\"))" > "`stdout'"  // fails in RH Linux
+      mata pathsplit(_fget(_julia_fh = _fopen("`stdout'", "r")), _juliapath="", _julialibname="")
+      mata st_local("libpath", _juliapath); st_local("libname", _julialibname)
+    }
+    
+    if `"`libname'"'=="" & c(os)!="Windows" cap {
+      !`bindir'julia +`channel' -e 'using Libdl; println(dlpath( "libjulia" ))' > "`stdout'"  // fails in Windows
+      mata pathsplit(_fget(_julia_fh = _fopen("`stdout'", "r")), _juliapath="", _julialibname="")
+      mata st_local("libpath", _juliapath); st_local("libname", _julialibname)
+    }
+
     cap mata _fclose(_julia_fh)
-    if `rc' {
+    if `"`libname'"'!="" {
       return local bindir `bindir'
-      return scalar success = 1
+      return local libpath `libpath'
+      return local libname `libname'
       continue, break
     }
   }
@@ -41,11 +53,11 @@ program define assure_julia_started
   version 14.1
 
   nobreak if `"$julia_loaded"' == "" {
-    tempfile stdio stderr
+    tempfile stdout stderr
 
     if c(os)=="MacOSX" & c(machine_type)=="Mac (Apple Silicon)" {
-      qui !sysctl -n sysctl.proc_translated > "`stdio'"
-      cap mata st_local("rc", _fget(_julia_fh = _fopen("`stdio'", "r")))
+      qui !sysctl -n sysctl.proc_translated > "`stdout'"
+      cap mata st_local("rc", _fget(_julia_fh = _fopen("`stdout'", "r")))
       cap mata fclose(_julia_fh)
       _assert "`rc'"!="1", msg("Can't load Julia when running under Rosetta. Disable Rosetta for Stata, restart Stata, and reinstall the julia package with {cmd:ssc install julia, replace}.") rc(198)
     }
@@ -57,52 +69,50 @@ program define assure_julia_started
     }
 
     if "`channel'"=="" local channel $JULIA_COMPAT_VERSION  // only guaranteed compatible with this Julia version
-    
+
     cap noi {
-      wheresjulia      
-      if !0`r(success)' {  // can't find juliaup so try to install it
-        if c(os)=="Windows" {
-          !winget install julia -s msstore --accept-package-agreements
+      wheresjulia, channel(`channel')
+
+      if `"`r(libname)'"'=="" {  // can't run the desired Julia. Start by looking for juliaup
+        tempname rc
+        foreach _bindir in "" `=cond(c(os)!="Windows", "~/.juliaup/bin/", "")' {
+          !`_bindir'juliaup -h > "`stdout'" 2> "`stderr'"
+          cap mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
+          cap mata _fclose(_julia_fh)
+          if `rc' {
+            local success 1
+            local bindir: copy local _bindir
+            continue, break
+          }
         }
-        else {
-          !curl -fsSL https://install.julialang.org | sh -s -- -y
+
+        if !0`success' {
+          if c(os)=="Windows" {
+            !winget install julia -s msstore --accept-package-agreements
+          }
+          else {
+            !curl -fsSL https://install.julialang.org | sh -s -- -y
+          }
+
+          di as txt `"Attempting to add/update `channel' channel in the local Julia installation."'
+          di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
+          di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
+          di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
+          qui !`bindir'juliaup rm `channel'  // in case channel existed and was incompletely uninstalled
+          qui !`bindir'juliaup add `channel'  
+          qui !`bindir'juliaup up  `channel'  
         }
-                       
-        wheresjulia
-        if !0`r(success)' exit 198  // still can't run juliaup: give up
+        
+        wheresjulia, channel(`channel')
+        if `"`r(libname)'"'=="" exit 198  // still can't run desired julia version: give up
       }
-      local bindir `r(bindir)'
-
-      tempname rc
-      qui !`bindir'julia +`channel' -e '1' 2> "`stderr'"
-      qui mata _fget(_julia_fh = _fopen("`stderr'", "r")); st_numscalar("`rc'", !fstatus(_julia_fh))  // if previous command good, then stderr empty and fget hit EOF, causing fstatus!=0
-      cap mata _fclose(_julia_fh)
-      if `rc' {
-        di as txt `"Attempting to add/update `channel' channel in the local Julia installation."'
-        di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
-        di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
-        di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
-        qui !`bindir'juliaup rm `channel'  // in case channel existed and was incompletely uninstalled
-        !`bindir'juliaup add `channel'  
-        !`bindir'juliaup up  `channel'  
-      }
-
-      cap {
-        !`bindir'julia +`channel' -e "using Libdl; println(dlpath(\"libjulia\"))" > "`stdio'"  // fails in RH Linux
-        mata pathsplit(_fget(_julia_fh = _fopen("`stdio'", "r")), _juliapath="", _julialibname="")
-      }
-      if _rc & c(os)!="Windows" cap {
-        !`bindir'julia +`channel' -e 'using Libdl; println(dlpath( "libjulia" ))' > "`stdio'"  // fails in Windows
-        mata pathsplit(_fget(_julia_fh = _fopen("`stdio'", "r")), _juliapath="", _julialibname="")
-      }
-      cap mata _fclose(_julia_fh)
-      mata st_local("libpath", _juliapath); st_local("libname", _julialibname)
-
-      di as txt `"Starting Julia `=cond(`"`threads'"'!="", "with threads=`threads'", "")'"'
-      mata displayflush() 
-
-      plugin call _julia, start "`libpath'/`libname'" "`libpath'" `threads'
     }
+      
+    di as txt `"Starting Julia `=cond(`"`threads'"'!="", "with threads=`threads'", "")'"'
+    mata displayflush()
+
+    plugin call _julia, start "`r(libpath)'/`r(libname)'" "`r(libpath)'" `threads'
+
     if _rc {
       di as err "Can't access Julia and Juliaup. {cmd:jl} requires that Julia be installed, along with the version manager Juliaup, and that"
       di as err `"you are able to start both by typing "julia" and "juliaup" in a terminal window (though you won't normally need to)."'
@@ -118,6 +128,7 @@ program define assure_julia_started
       qui findfile stataplugininterface.jl
       plugin call _julia, evalqui `"pushfirst!(LOAD_PATH, dirname(expanduser(raw"`r(fn)'")))"'
       plugin call _julia, evalqui "using stataplugininterface"
+
       qui findfile jl.plugin
       plugin call _julia, evalqui `"stataplugininterface.setdllpath(expanduser(raw"`r(fn)'"))"'
     }
@@ -146,12 +157,10 @@ program define SetEnv
     local anything = substr(`"`anything'"',2,.)
     local sharedopt , shared=true
   }
-
   plugin call _julia, evalqui `"Pkg.activate("`anything'" `sharedopt')"'
-
   if `"`project'"'=="" {
-    AddPkg DataFrames, ver(1.8.1)
-    AddPkg CategoricalArrays, ver(1.0.2)
+    AddPkg DataFrames, ver(1.8.2)
+    AddPkg CategoricalArrays, ver(1.1.1)
   }
   else {
     plugin call _julia, eval `"dirname(Base.active_project())"'
@@ -171,11 +180,11 @@ program define SetEnv
 
     qui copy "`project'" "`envdir'/Project.toml", `replace'
     qui copy "`manifest'" "`envdir'/Manifest.toml", `replace'
-    di as txt _n "Instatiating a newly imported package environment. This could take a few minutes."
+    di as txt _n "Instantiating a newly imported package environment. This could take a few minutes."
     mata displayflush()
     plugin call _julia, evalqui "Pkg.instantiate()"
   }
-  if "`pin'"!="" plugin call _julia, evalqui "Pkg.pin(all_pkgs = true)"
+  if "`pin'"!="" plugin call _julia, evalqui "for v in values(Pkg.dependencies()) v.is_pinned || Pkg.pin(v.name) end"  // saves time to only call pin where needed
 end
 
 cap program drop AddPkg
@@ -309,8 +318,8 @@ program define jl, rclass
   version 14.1
 
   if `"`0'"'=="version" {
-    di as txt "jl version 2.0.0"
-    return local version 2.0.0
+    di as txt "jl version 2.1.0"
+    return local version 2.1.0
     exit
   }
 
@@ -340,13 +349,14 @@ program define jl, rclass
     assure_julia_started
 
     if inlist(`"`cmd'"',"SetEnv","GetEnv") {
+      syntax [anything], [QUIetly *]
       qui if "`cmd'"=="SetEnv" {
-        SetEnv `0'
+        SetEnv `anything', `options'
       }
-      plugin call _julia, eval `"dirname(Base.active_project())"'
+      plugin call _julia, eval "dirname(Base.active_project())"
       local __jlans `__jlans'  // strip quotes
       return local envdir: subinstr local __jlans "\\" "\", all
-      jlcmd: Pkg.status()
+      if "`quietly'"=="" jlcmd: Pkg.status()
     }
     else if `"`cmd'"'=="AddPkg" AddPkg `0'
     else if `"`cmd'"'=="use" {
@@ -543,19 +553,19 @@ program _julia, plugin using(jl.plugin)
 * 0.10.1 Fixed memory leak
 * 0.10.2 threads() option on start
 * 0.10.3 Bug fix for 0.10.2
-* 1.0.0 Add GetEnv, support for closing ";", and interactive mode
-* 1.0.1 Drop confirm names on Julia source and destination matrices so they can be views or other things
-* 1.0.2 Fix crashes on really long included regressor lists; add status call to GetEnv & SetEnv; bug fixes
-* 1.1.0 Fix bug in GetVarsFromDF, nomissing. Now requires Julia >=1.11.
-* 1.1.1 Fixed crash in 1.1.0 in Mac ARM
-* 1.1.2 Switch to using a dedicated 1.11 Juliaup channel; automatically install Julia
-* 1.1.3 Bug fixes. Make GetVarsFromDF varlist default to cols() option.
-* 1.1.4 Make sure to close all temp files opened in Mata, which otherwise can crash other programs
-* 1.1.5 Add date/datetime support to -jl use-
-* 1.1.6 Fix 1.1.5 crash
-* 1.1.7 Automatically load InteractiveUtils
-* 1.1.8 Error if running under Rosetta
-* 1.1.9 Fix st_data() crash in macOS.Made st_data() and st_view() accept varname for sample marker
+* 1.0.0  Add GetEnv, support for closing ";", and interactive mode
+* 1.0.1  Drop confirm names on Julia source and destination matrices so they can be views or other things
+* 1.0.2  Fix crashes on really long included regressor lists; add status call to GetEnv & SetEnv; bug fixes
+* 1.1.0  Fix bug in GetVarsFromDF, nomissing. Now requires Julia >=1.11.
+* 1.1.1  Fixed crash in 1.1.0 in Mac ARM
+* 1.1.2  Switch to using a dedicated 1.11 Juliaup channel; automatically install Julia
+* 1.1.3  Bug fixes. Make GetVarsFromDF varlist default to cols() option.
+* 1.1.4  Make sure to close all temp files opened in Mata, which otherwise can crash other programs
+* 1.1.5  Add date/datetime support to -jl use-
+* 1.1.6  Fix 1.1.5 crash
+* 1.1.7  Automatically load InteractiveUtils
+* 1.1.8  Error if running under Rosetta
+* 1.1.9  Fix st_data() crash in macOS.Made st_data() and st_view() accept varname for sample marker
 * 1.1.10 Strip backticks from returned errors messages to prevent "unmatched quote" error.
 * 1.2.1  Add version() option to AddPkg to give complete control of installed version.
 *        Change environments accessed by SetEnv to be subdirectories of environments not environments/v1.11, like regular shared environments.
@@ -565,3 +575,5 @@ program _julia, plugin using(jl.plugin)
 * 2.0.0  Add project(), manifest(), update, replace, and pin options to SetEnv. Move to Julia 1.12.
 *        Breaking change require "@" prefix in SetEnv to refer to shared package environment.
 *        Add jl_project.toml and jl_manifest.toml.
+* 2.1.0  Minimize precompilation-triggering calls in startup and package management, to save startup time especially in Windows.
+*        Add quietly option to SetEnv, GetEnv. Move to Julia 1.12.
