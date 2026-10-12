@@ -184,7 +184,7 @@ program define SetEnv
     mata displayflush()
     plugin call _julia, evalqui "Pkg.instantiate()"
   }
-  if "`pin'"!="" plugin call _julia, evalqui "for v in values(Pkg.dependencies()) v.is_pinned || Pkg.pin(v.name) end"  // saves time to only call pin where needed
+  if "`pin'"!="" plugin call _julia, evalqui "for v in values(Pkg.dependencies()) v.name ∉ keys(Pkg.project().dependencies) || v.is_pinned || Pkg.pin(v.name) end"  // saves time to only call pin where needed
 end
 
 cap program drop AddPkg
