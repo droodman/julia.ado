@@ -576,4 +576,4 @@ program _julia, plugin using(jl.plugin)
 *        Breaking change require "@" prefix in SetEnv to refer to shared package environment.
 *        Add jl_project.toml and jl_manifest.toml.
 * 2.1.0  Minimize precompilation-triggering calls in startup and package management, to save startup time especially in Windows.
-*        Add quietly option to SetEnv, GetEnv. Move to Julia 1.12.
+*        Add quietly option to SetEnv, GetEnv.
