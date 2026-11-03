@@ -216,35 +216,66 @@ void copytodf<double>(char* touse, ST_int i, double* px, double missval, char no
 }
 
 template <typename T>
-void copyfromdf(char* touse, ST_int i, T* px, size_t offset, char* pmissings, char nomissing, size_t _SF_in2, T shift=0) {
+void copyfromdf(char* touse, ST_int i, T* px, size_t stride, char* pmissings, char nomissing, size_t _SF_in2, T shift=0) {
     char* _tousej = touse;
-    px += offset;
-    if (shift)
-        if (nomissing || !pmissings) {
-            for (ST_int j = SF_in1(); j <= _SF_in2; j++)
-                if (*_tousej++)
-                    SF_vstore(i, j, (double)(shift + *px++));
-        }
-        else
-            for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
-                if (*_tousej++) {
-                    SF_vstore(i, j, *pmissings++ ? SV_missval : (double)(shift + *px));
-                    px++;
-                }
+    if (stride==1)
+        if (shift)
+            if (nomissing || !pmissings) {
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++)
+                    if (*_tousej++)
+                        SF_vstore(i, j, (double)(shift + *px++));
             }
-    else
-        if (nomissing || !pmissings) {
-            for (ST_int j = SF_in1(); j <= _SF_in2; j++)
-                if (*_tousej++)
-                    SF_vstore(i, j, (double)(*px++));
-        }
-        else
-            for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
-                if (*_tousej++) {
-                    SF_vstore(i, j, *pmissings++ ? SV_missval : (double)*px);
-                    px++;
+            else
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
+                    if (*_tousej++) {
+                        SF_vstore(i, j, *pmissings++ ? SV_missval : (double)(shift + *px));
+                        px++;
+                    }
                 }
+        else
+            if (nomissing || !pmissings) {
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++)
+                    if (*_tousej++)
+                        SF_vstore(i, j, (double)(*px++));
             }
+            else
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
+                    if (*_tousej++) {
+                        SF_vstore(i, j, *pmissings++ ? SV_missval : (double)*px);
+                        px++;
+                    }
+                }
+    else  // stride>1
+        if (shift)
+            if (nomissing || !pmissings) {
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++)
+                    if (*_tousej++) {
+                        SF_vstore(i, j, (double)(shift + *px));
+                        px += stride;
+                    }
+            }
+            else
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
+                    if (*_tousej++) {
+                        SF_vstore(i, j, *pmissings++ ? SV_missval : (double)(shift + *px));
+                        px += stride;
+                    }
+                }
+        else
+            if (nomissing || !pmissings) {
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++)
+                    if (*_tousej++) {
+                        SF_vstore(i, j, (double)(*px));
+                        px += stride;
+                    }
+            }
+            else
+                for (ST_int j = SF_in1(); j <= _SF_in2; j++) {
+                    if (*_tousej++) {
+                        SF_vstore(i, j, *pmissings++ ? SV_missval : (double)*px);
+                        px += stride;
+                    }
+                }
 }
 
 
@@ -530,7 +561,7 @@ STDLL stata_call(int argc, char* argv[])
                     string eltype = "eltype(" + colname + ")";
                     types[i] = JL_unbox_int64(JL_eval("stataplugininterface.type2intDict[" + eltype + "]"));
                     pxs[i] = (void*)JL_eval(colname);
-                    if (types[i] != 7)
+                    if (types[i] != 7)  // for-nonstrings pointer to column data
                         pxs[i] = (void*)jl_array_data_((jl_value_t*)pxs[i]);
                 }
                 JL_gc_enable(1);
@@ -658,27 +689,24 @@ STDLL stata_call(int argc, char* argv[])
             void** pxs = (void**)malloc(ncols * sizeof(void*));
             const char** types = (const char**)malloc(sizeof(const char *) * ncols);
             char** pmissings = (char**)malloc(sizeof(void*) * SF_nvars());
-            size_t* offsets = (size_t*)malloc(sizeof(size_t) * SF_nvars());
+            int64_t* strides = (int64_t*)malloc(sizeof(int64_t) * SF_nvars());
 
             JL_gc_enable(0);
             for (ST_int i = 0; i < ncols; i++) {
                 string colref = dfname + "." + string(colname);
                 JL_eval("stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
-                pxs[i] = (void*)JL_eval("stataplugininterface.x");
-                types[i] = JL_string_ptr(JL_eval(" stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
+                types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
 
                 int64_t allowsmissing = JL_unbox_int64(JL_eval("eltype(stataplugininterface.x) isa Union"));
+                pmissings[i] = allowsmissing ? (char*)jl_array_data_(JL_eval("map(ismissing,stataplugininterface.x)")) : NULL;
 
-                if (allowsmissing) {
-                    pmissings[i] = (char*)jl_array_data_(JL_eval("map(ismissing,stataplugininterface.x)"));
-                    offsets[i] = (size_t)((jl_array_t*)pxs[i])->ref.ptr_or_offset;  // needed for GenericMemory-based arrays in Julia >1.10. Ugly to access this way.
+                if (strcmp(types[i], "String")) {
+					JL_eval("IndexStyle(stataplugininterface.x) isa IndexLinear || (stataplugininterface.x = Vector(stataplugininterface.x))");  // in rare(?) case df is a funky view onto matrix, make clean copy; in principle could augment to handle Vector{Int64}-indexed views
+					pxs[i] = JL_unbox_voidpointer(JL_eval("pointer(stataplugininterface.x)"));
+                    strides[i] = JL_unbox_int64(JL_eval("stride(stataplugininterface.x,1)"));
                 }
-                else {
-                    pmissings[i] = NULL;
-                    offsets[i] = 0;
-                }
-                if (strcmp(types[i], "String"))
-                    pxs[i] = allowsmissing? ((jl_array_t*)pxs[i])->ref.mem->ptr : (void*)jl_array_data_((jl_value_t*)pxs[i]);  // in Julia >= 1.11, jl_array_data_() returns an offset when eltype is a union https://hackmd.io/@vtjnash/GenericMemory
+				else
+					pxs[i] = (void*)JL_eval("stataplugininterface.x");  // multiple entries of pxs could point to stataplugininterface.x, but OK because GC off till we're done with all string copying
 
                 colname = strtok_r(NULL, " ", &next_colname);
             }
@@ -694,21 +722,21 @@ STDLL stata_call(int argc, char* argv[])
 #endif
                 {
                     if      (!strcmp(types[i], "Int8"))
-                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (int8_t) 0);
+                        copyfromdf(touse, i + 1, (int8_t*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (int8_t) 0);
                     else if (!strcmp(types[i], "Int16"))
-                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (int16_t)0);
+                        copyfromdf(touse, i + 1, (int16_t*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (int16_t)0);
                     else if (!strcmp(types[i], "Int32"))
-                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (int32_t)0);
+                        copyfromdf(touse, i + 1, (int32_t*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (int32_t)0);
                     else if (!strcmp(types[i], "Int64"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (int64_t)0);
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (int64_t)0);
                     else if (!strcmp(types[i], "Float32"))
-                        copyfromdf(touse, i + 1, (float*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (float)0);
+                        copyfromdf(touse, i + 1, (float*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (float)0);
                     else if (!strcmp(types[i], "Float64"))
-                        copyfromdf(touse, i + 1, (double*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (double)0);
+                        copyfromdf(touse, i + 1, (double*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (double)0);
                     else if (!strcmp(types[i], "Date"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (int64_t) -715510);  // shift by days from 1/1/0001 to 1/1/1960
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (int64_t) -715510);  // shift by days from 1/1/0001 to 1/1/1960
                     else if (!strcmp(types[i], "DateTime"))
-                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], offsets[i], pmissings[i], nomissing, _SF_in2, (int64_t) -61820064000000);  // shift by milliseconds from 1/1/0001 to 1/1/1960
+                        copyfromdf(touse, i + 1, (int64_t*)pxs[i], strides[i], pmissings[i], nomissing, _SF_in2, (int64_t) -61820064000000);  // shift by milliseconds from 1/1/0001 to 1/1/1960
                 }
 #if SYSTEM==APPLEMAC
                 );
@@ -731,6 +759,7 @@ STDLL stata_call(int argc, char* argv[])
             free(touse);
             free(colnames);
             free(pxs);
+            free(strides);
             free(pmissings);
             return 0;
         }
