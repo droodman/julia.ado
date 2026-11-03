@@ -443,11 +443,6 @@ STDLL stata_call(int argc, char* argv[])
             if (argc > 1) {
                 if (noisily) {
                     JL_gc_enable(0);
-                    // if (!strcmp(argv[1], "dirname(Base.active_project())")) {
-                    //     return 100*(noisily+1) + !strcmp(argv[1], "dirname(Base.active_project())");
-                    //     // SF_error((char *) "Stopping!\n");
-                    //     // throw "Stopping!";
-                    // }
                     JL_eval("ans=" + string(argv[1]));
                     SF_macro_save((char*)"___jlans", jl_string_data(JL_eval("!isnothing(ans) && show(_Stata_context, MIME\"text/plain\"(), ans); ans = String(take!(_Stata_io))")));
                     JL_gc_enable(1);
@@ -695,7 +690,7 @@ STDLL stata_call(int argc, char* argv[])
             for (ST_int i = 0; i < ncols; i++) {
                 string colref = dfname + "." + string(colname);
                 JL_eval("stataplugininterface.x =" + colref + "|> (x-> x |> eltype |> nonmissingtype <: CategoricalValue ? levelcode.(x) : x)");
-                types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));
+                types[i] = JL_string_ptr(JL_eval("stataplugininterface.x |> eltype |> nonmissingtype |> Symbol |> String"));  // would be dangerous if GC weren't off
 
                 int64_t allowsmissing = JL_unbox_int64(JL_eval("eltype(stataplugininterface.x) isa Union"));
                 pmissings[i] = allowsmissing ? (char*)jl_array_data_(JL_eval("map(ismissing,stataplugininterface.x)")) : NULL;
@@ -710,14 +705,13 @@ STDLL stata_call(int argc, char* argv[])
 
                 colname = strtok_r(NULL, " ", &next_colname);
             }
-            JL_gc_enable(1);
 
 #if SYSTEM==APPLEMAC
             dispatch_apply(ncols, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^ (size_t i)
 #else
-//#pragma omp parallel
+#pragma omp parallel
             {
-//#pragma omp for
+#pragma omp for
                 for (ST_int i = 0; i < ncols; i++)
 #endif
                 {
@@ -743,6 +737,7 @@ STDLL stata_call(int argc, char* argv[])
 #else
             }
 #endif
+
             for (ST_int i = 0; i < ncols; i++)  // copying string vars apparently not thread-safe because of jl_*() calls
                 if (!strcmp(types[i], "String")) {
                     char* _tousej = touse;
@@ -755,6 +750,8 @@ STDLL stata_call(int argc, char* argv[])
                             SF_sstore(ip1, j, val);
                         }
                 }
+
+            JL_gc_enable(1);
 
             free(touse);
             free(colnames);

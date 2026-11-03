@@ -1,0 +1,58 @@
+Steps to compile julia.ado.cpp
+Ubuntu in WSL
+Instructions for installing Chrome are at https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps
+Install Stata, following given instructions. Edit \\wsl.localhost\Ubuntu-22.04\home\droodman\.bashrc to add something like:
+export PATH="/usr/local/stata19:$PATH"
+JULIA_DIR=/home/droodman/.julia/juliaup/julia-1.11.2+0.x64.linux.gnu
+
+Stata needs some libraries missing from Ubuntu 20.04 for WSL. Do 
+sudo apt-get install gtk-2.0
+sudo apt install libtinfo5
+sudo apt-get -y install libncurses5
+Compilation script:
+export PATH="/usr/local/stata19:$PATH"
+JULIA_DIR=/home/droodman/.julia/juliaup/julia-1.12.7+0.x64.linux.gnu
+cd /mnt/d/OneDrive/Documents/Macros/julia.ado/cpp
+g++ -shared -fPIC -DSYSTEM=OPUNIX stplugin.c julia.ado.cpp -o ../jl.pluginLINUX64 -I$JULIA_DIR/include/julia -L$JULIA_DIR/lib -Wl,-rpath,$JULIA_DIR/lib -ljulia
+cp ../jl.pluginLINUX64 /home/droodman/ado/plus/j/jl.plugin
+xstata-mp
+Ubuntu in AWS
+Fire up a free Ubuntu instance on AWS. Connect using web interface and accept default user name “ubuntu”. Install Julia with instructions at https://julialang.org/downloads/platform/. Insert something like “export PATH="$PATH:/home/ubuntu/julia-1.9.4/bin" in .bashrc. In vim, hit I to insert(?) and <Esc>:wq to write and quit. Type exit to quit terminal in order to restart with new .bashrc.
+Download the media for Stata for Linux in through a browser. Upload it to the AWS instance with the Putty file transfer utility (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/putty.html) with something like:
+pscp -i "D:\OneDrive - Open Philanthropy Project\AWS\David-AWS-EC2.ppk" "\\wsl.localhost\Ubuntu-22.04\home\droodman\Downloads\Stata18Linux64.tar.gz" ubuntu@ec2-54-82-201-34.compute-1.amazonaws.com:/home/ubuntu/stata.tar.gz
+Follow installation instructions at https://www.stata.com/support/faqs/unix/install-download-on-linux/
+Add 
+export PATH="/usr/local/stata18:$PATH"
+JULIA_DIR=/home/ubuntu/julia-1.9.4
+to .bashrc too and exit and restart terminal.
+To run, command-line Stata needs the ncurses library:
+sudo apt-get update
+sudo apt-get -y install libncurses5
+Then “stata” and “stata-mp” commands should work.
+To upload the source files, do something like:
+pscp -i "D:\OneDrive - Open Philanthropy Project\AWS\David-AWS-EC2.ppk" "D:\OneDrive\Documents\Macros\julia.ado\src\cpp\julia.ado.cpp" ubuntu@ec2-54-82-201-34.compute-1.amazonaws.com:/home/ubuntu/julia.ado.cpp
+pscp -i "D:\OneDrive - Open Philanthropy Project\AWS\David-AWS-EC2.ppk" "D:\OneDrive\Documents\Macros\julia.ado\src\cpp\stplugin.c" ubuntu@ec2-54-82-201-34.compute-1.amazonaws.com:/home/ubuntu/stplugin.c
+pscp -i "D:\OneDrive - Open Philanthropy Project\AWS\David-AWS-EC2.ppk" "D:\OneDrive\Documents\Macros\julia.ado\src\cpp\stplugin.h" ubuntu@ec2-54-82-201-34.compute-1.amazonaws.com:/home/ubuntu/stplugin.h
+Install g++ with “sudo apt install g++”.
+Debian in WSL
+Similar to Ubuntu, but different list of needed extra packages:
+sudo apt-get install gtk-2.0
+sudo apt-get install libglib2.0-0
+sudo apt install libncurses5
+Mac ARM
+Compile with
+cd "/Users/droodman/Library/CloudStorage/OneDrive-Personal/Documents/Macros/julia.ado/cpp"
+export JULIA_DIR=/Users/droodman/.julia/juliaup/julia-1.12.7+0.aarch64.apple.darwin14/Julia-1.12.app/Contents/Resources/julia
+g++ -bundle -fPIC -DSYSTEM=APPLEMAC stplugin.c julia.ado.cpp -o ../jl.pluginMACARM64 -I$JULIA_DIR/include/julia -std=c++11
+
+
+Mac Intel
+brew install libomp
+
+cd /Users/davidroodman/OneDrive/Documents/Macros/julia.ado/cpp
+export JULIA_DIR=/Users/davidroodman/.julia/juliaup/julia-1.11.1+0.x64.apple.darwin14
+g++ -bundle -fPIC -DSYSTEM=APPLEMAC stplugin.c julia.ado.cpp -o ../jl.pluginMACINTEL64 -I$JULIA_DIR/include/julia -std=c++11
+
+cd ..
+cp jl.pluginMACINTEL64 jl.plugin
+mv jl.plugin /Users/davidroodman/Library/Application\ Support/Stata/ado/plus/j

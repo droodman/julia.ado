@@ -10,6 +10,7 @@ global const dllpath = Ref{String}(raw"c:\ado\plus\j\jl.plugin")  # where to loo
 setdllpath(s::String) = (dllpath[] = s)
 
 global x, k, julia_task, julia_time, M  # used by C++ plugin to avoid contaminating Main name space
+
 public setdllpath, x, k, julia_task, julia_time, pushstring!
 
 global macrobuf = Vector{Int8}(undef, 15_480_200+1)  # can hold maximum-sized Stata macro

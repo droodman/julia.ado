@@ -244,3 +244,4 @@ STDLL pginit(ST_plugin *p) ;
 #define SF_ifobs(z)		((_stata_)->selobs(z))
 
 #endif
+
