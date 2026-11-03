@@ -43,7 +43,7 @@ Mac ARM
 Compile with
 cd "/Users/droodman/Library/CloudStorage/OneDrive-Personal/Documents/Macros/julia.ado/cpp"
 export JULIA_DIR=/Users/droodman/.julia/juliaup/julia-1.12.7+0.aarch64.apple.darwin14/Julia-1.12.app/Contents/Resources/julia
-g++ -bundle -fPIC -DSYSTEM=APPLEMAC stplugin.c julia.ado.cpp -o ../jl.pluginMACARM64 -I$JULIA_DIR/include/julia -std=c++11
+g++ -bundle -fPIC -DSYSTEM=APPLEMAC stplugin.c julia.ado.cpp -o ../jl.pluginMACARM64 -I$JULIA_DIR/include/julia -std=c++11 -arch x86_64 -arch arm64
 
 
 Mac Intel
