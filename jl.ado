@@ -1,4 +1,4 @@
-*! jl 2.1.0 11 October 2026
+*! jl 2.1.1 5 November 2026
 *! Copyright (C) 2023-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -93,15 +93,15 @@ program define assure_julia_started
           else {
             !curl -fsSL https://install.julialang.org | sh -s -- -y
           }
-
-          di as txt `"Attempting to add/update `channel' channel in the local Julia installation."'
-          di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
-          di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
-          di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
-          qui !`bindir'juliaup rm `channel'  // in case channel existed and was incompletely uninstalled
-          qui !`bindir'juliaup add `channel'  
-          qui !`bindir'juliaup up  `channel'  
         }
+
+        di as txt `"Attempting to add/update `channel' channel in the local Julia installation."'
+        di "This will not affect which version of Julia runs by default when you call it from outside of Stata."
+        di "To learn more about the Julia version manager, type or click on {stata !juliaup --help}."
+        di "This version of the {cmd:julia} Stata package is only guaranteed stable with Julia $JULIA_COMPAT_VERSION." _n
+        qui !`bindir'juliaup rm `channel'  // in case channel existed and was incompletely uninstalled
+        qui !`bindir'juliaup add `channel'  
+        qui !`bindir'juliaup up  `channel'  
         
         wheresjulia, channel(`channel')
         if `"`r(libname)'"'=="" exit 198  // still can't run desired julia version: give up
@@ -577,3 +577,4 @@ program _julia, plugin using(jl.plugin)
 *        Add jl_project.toml and jl_manifest.toml.
 * 2.1.0  Minimize precompilation-triggering calls in startup and package management, to save startup time especially in Windows.
 *        Add quietly option to SetEnv, GetEnv.
+* 2.1.1  Fix garbage-collection bug in GetVarsFromDF. Fix failure to install desired channel. Move to single plugin for Macs.
